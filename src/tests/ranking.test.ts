@@ -33,6 +33,19 @@ describe('classement (§13.3)', () => {
     expect(rankVehicles([a, b, c]).map((v) => v.index)).toEqual([2, 1, 0]);
   });
 
+  it('un attardé arrêté plus tôt ne devance pas une voiture ayant plus de tours', () => {
+    const fast = makeVehicle(0);
+    const lapped = makeVehicle(1);
+    fast.raceState = 'finished';
+    fast.lap = 19;
+    fast.finishTime = 435;
+    lapped.raceState = 'finished';
+    lapped.lap = 18;
+    lapped.finishTime = 428; // arrêté dès le passage du vainqueur
+    expect(rankVehicles([lapped, fast])[0]).toBe(fast);
+    expect(rankVehicles([lapped, fast])[1]).toBe(lapped);
+  });
+
   it('écart : temps exacts après l’arrivée, estimation sinon', () => {
     const a = makeVehicle(0);
     const b = makeVehicle(1);

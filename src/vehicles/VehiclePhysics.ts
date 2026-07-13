@@ -47,7 +47,10 @@ export function stepVehiclePhysics(vehicle: Vehicle, track: Track, dt: number): 
   }
 
   // — Traînées : roue libre, résistance de surface, excès au-delà du plafond.
-  const drag = spec.coastDrag + 40 * props.drag;
+  // La résistance de surface croît avec la vitesse : un départ arrêté reste
+  // possible sur l'herbe (sinon un véhicule immobilisé y serait condamné).
+  const dragSpeedFactor = Math.min(1, Math.abs(vehicle.vLong) / 50);
+  const drag = spec.coastDrag + 40 * props.drag * dragSpeedFactor;
   if (vehicle.vLong > 0) {
     vehicle.vLong = Math.max(0, vehicle.vLong - drag * dt);
   } else if (vehicle.vLong < 0) {

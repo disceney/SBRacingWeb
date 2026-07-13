@@ -102,6 +102,18 @@ export class AIController {
   /** Conduite normale sur la piste. */
   private driveTrack(dt: number, time: number, vehicles: Vehicle[]): void {
     const v = this.vehicle;
+
+    // Égaré dans la zone des stands sans intention d'arrêt (poussé lors d'un
+    // évitement) : rejoindre la sortie plutôt que viser la piste à travers
+    // le mur des stands.
+    if (this.track.isInPitArea(v.x, v.y)) {
+      const line =
+        v.x >= this.track.data.pitExitZone.x1 ? this.track.pitExitLine : this.track.pitLaneLine;
+      this.steerAlong(line, line.project(v.x, v.y));
+      this.applySpeed(mphToUnits(PIT_SPEED_LIMIT_MPH));
+      return;
+    }
+
     const s = this.track.progressAt(v.x, v.y);
 
     // — Évitement et dépassement.
@@ -198,7 +210,11 @@ export class AIController {
       const box = this.track.data.pitBoxes[v.pitBoxIndex]!;
       const distToStop = Math.max(0, box.x - 6 - v.x);
       target = Math.min(PIT_CAP, Math.sqrt(2 * v.spec.braking * distToStop));
-      this.steerAlong(line, d, box.y - (this.track.data.pitLane.y1 + this.track.data.pitLane.y2) / 2);
+      // Circulation dans la moitié basse de la voie (à l'écart des voitures
+      // arrêtées dans les emplacements), déport tardif vers son emplacement.
+      const laneCenter = (this.track.data.pitLane.y1 + this.track.data.pitLane.y2) / 2;
+      const lateral = distToStop < 90 ? box.y - laneCenter : 12;
+      this.steerAlong(line, d, lateral);
     } else {
       line = this.track.pitExitLine;
       const d = line.project(v.x, v.y);

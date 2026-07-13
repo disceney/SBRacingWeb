@@ -1,3 +1,4 @@
+import type { Track } from '../track/Track';
 import type { Vehicle } from './Vehicle';
 
 const RESTITUTION = 0.25;
@@ -6,13 +7,16 @@ const RESTITUTION = 0.25;
  * Résolution des collisions voiture contre voiture par paires de cercles :
  * correction des chevauchements à parts égales puis échange d'impulsion le
  * long de la normale (masses identiques). Aucun véhicule ne reste bloqué :
- * la séparation est toujours appliquée (§8.5).
+ * la séparation est toujours appliquée (§8.5). Les véhicules présents dans
+ * la zone des stands sont ignorés : l'espace y est trop étroit pour que des
+ * contacts restent équitables, et aucun embouteillage ne doit s'y former.
  */
-export function resolveCarCollisions(vehicles: Vehicle[]): void {
+export function resolveCarCollisions(vehicles: Vehicle[], track: Track): void {
   for (let i = 0; i < vehicles.length; i++) {
     for (let j = i + 1; j < vehicles.length; j++) {
       const a = vehicles[i]!;
       const b = vehicles[j]!;
+      if (track.isInPitArea(a.x, a.y) || track.isInPitArea(b.x, b.y)) continue;
       const minDist = a.spec.collisionRadius + b.spec.collisionRadius;
       const dx = b.x - a.x;
       const dy = b.y - a.y;

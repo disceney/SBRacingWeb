@@ -146,6 +146,11 @@ export class RaceScene extends Phaser.Scene {
     audio.unlock();
     audio.startEngine();
     this.showCenterText('3', 0.9);
+
+    // Accès de debug en développement (autopilote de test, inspection).
+    if (import.meta.env.DEV) {
+      (window as unknown as Record<string, unknown>).__race = this.controller;
+    }
   }
 
   override update(_time: number, deltaMs: number): void {

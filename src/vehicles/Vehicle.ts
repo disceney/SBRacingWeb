@@ -58,11 +58,15 @@ export class Vehicle {
   /** Distance totale parcourue (tours × longueur + progression). */
   totalDistance = 0;
   finishTime: number | null = null;
+  /** Tours bouclés au moment de l'arrivée (figés, le véhicule roule encore). */
+  lapsAtFinish: number | null = null;
 
   // — Chronométrage (s).
   currentLapStart = 0;
   lastLapTime: number | null = null;
   bestLapTime: number | null = null;
+  /** Dernier tour déjà chronométré : évite les doubles comptes après un recul. */
+  timedLap = 0;
 
   // — Stands.
   pitPhase: PitPhase = 'none';

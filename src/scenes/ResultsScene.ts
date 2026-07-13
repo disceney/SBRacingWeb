@@ -52,14 +52,19 @@ export class ResultsScene extends Phaser.Scene {
     });
 
     const shown = this.payload.results.slice(0, 20);
+    const winnerLaps = shown[0]?.lapsCompleted ?? 0;
     shown.forEach((row, i) => {
+      // Attardé : écart exprimé en tours plutôt qu'en temps.
+      const lapsDown = winnerLaps - row.lapsCompleted;
+      const gapText =
+        row.position === 1 ? '—' : row.gap !== null ? formatGap(row.gap) : lapsDown > 0 ? `+${lapsDown} t.` : '—';
       const line = [
         pad(String(row.position), 4),
         pad(row.driverName, 13),
         pad(`#${row.raceNumber}`, 4),
         pad(String(row.lapsCompleted), 6),
         pad(formatTotalTime(row.totalTime), 10),
-        pad(row.position === 1 ? '—' : formatGap(row.gap), 10),
+        pad(gapText, 10),
         pad(formatLapTime(row.bestLap), 10),
         pad(String(row.pitStops), 7),
         pad(row.pitTime > 0 ? row.pitTime.toFixed(1) + ' s' : '—', 11),

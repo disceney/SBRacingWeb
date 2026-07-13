@@ -95,7 +95,7 @@ export class RaceController {
     }
 
     if (this.settings.collisions) {
-      resolveCarCollisions(this.vehicles);
+      resolveCarCollisions(this.vehicles, this.track);
     }
 
     for (const vehicle of this.vehicles) {
@@ -110,7 +110,9 @@ export class RaceController {
         wantPit: ai?.wantPit ?? false,
         lapsRemaining,
       });
-      if (events.exited && ai) {
+      // La demande d'arrêt n'est levée qu'après un arrêt effectif : un
+      // emplacement manqué (trafic) sera retenté au tour suivant.
+      if (events.stopped && ai) {
         ai.wantPit = false;
       }
     }
@@ -140,10 +142,15 @@ export class RaceController {
       driverName: vehicle.driverName,
       raceNumber: vehicle.raceNumber,
       isPlayer: vehicle.isPlayer,
-      lapsCompleted: Math.max(0, vehicle.lap),
+      lapsCompleted: Math.max(0, vehicle.lapsAtFinish ?? vehicle.lap),
       totalTime: vehicle.finishTime,
+      // Écart en temps uniquement dans le même tour que le vainqueur ; les
+      // attardés sont signalés par leur nombre de tours.
       gap:
-        vehicle.finishTime !== null && winner?.finishTime != null && vehicle !== winner
+        vehicle.finishTime !== null &&
+        winner?.finishTime != null &&
+        vehicle !== winner &&
+        (vehicle.lapsAtFinish ?? vehicle.lap) >= (winner.lapsAtFinish ?? winner.lap)
           ? vehicle.finishTime - winner.finishTime
           : null,
       bestLap: vehicle.bestLapTime,
@@ -161,13 +168,14 @@ export class RaceController {
   private handleLapCompleted(vehicle: Vehicle): void {
     if (this.phase !== 'racing') return;
 
-    if (vehicle.lap === 0) {
-      // Premier franchissement : le tour 1 commence, pas de temps enregistré.
-      vehicle.currentLapStart = this.raceTime;
-    } else if (vehicle.lap > 0) {
+    // Un re-franchissement après un recul (anti-triche) ne produit ni chrono
+    // ni annonce : seul un tour jamais atteint est chronométré.
+    const isNewLap = vehicle.lap > vehicle.timedLap;
+    vehicle.timedLap = Math.max(vehicle.timedLap, vehicle.lap);
+
+    if (isNewLap && vehicle.lap >= 1) {
       const lapTime = this.raceTime - vehicle.currentLapStart;
       vehicle.lastLapTime = lapTime;
-      vehicle.currentLapStart = this.raceTime;
       if (vehicle.bestLapTime === null || lapTime < vehicle.bestLapTime) {
         vehicle.bestLapTime = lapTime;
       }
@@ -175,8 +183,9 @@ export class RaceController {
         this.raceBestLap = { time: lapTime, vehicle };
       }
     }
+    vehicle.currentLapStart = this.raceTime;
 
-    this.onEvent?.({ type: 'lapCompleted', vehicle });
+    if (isNewLap) this.onEvent?.({ type: 'lapCompleted', vehicle });
 
     // — Règles d'arrivée : le vainqueur boucle le dernier tour, les autres
     // terminent le tour en cours (§13.4).
@@ -186,6 +195,7 @@ export class RaceController {
     if (finished) {
       vehicle.raceState = 'finished';
       vehicle.finishTime = this.raceTime;
+      vehicle.lapsAtFinish = vehicle.lap;
       if (this.leaderFinishTime === null) this.leaderFinishTime = this.raceTime;
       this.onEvent?.({ type: 'finished', vehicle });
       return;
@@ -193,7 +203,7 @@ export class RaceController {
 
     // — Annonce du dernier tour et stratégie de stands de l'IA.
     if (vehicle.raceState === 'racing') {
-      if (vehicle.lap === this.settings.laps - 1) {
+      if (isNewLap && vehicle.lap === this.settings.laps - 1) {
         this.onEvent?.({ type: 'lastLap', vehicle });
       }
       const ai = this.field.aiControllers.get(vehicle);

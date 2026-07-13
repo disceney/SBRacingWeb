@@ -9,7 +9,14 @@ export function rankVehicles(vehicles: Vehicle[]): Vehicle[] {
   return [...vehicles].sort((a, b) => {
     const aFinished = a.raceState === 'finished';
     const bFinished = b.raceState === 'finished';
-    if (aFinished && bFinished) return (a.finishTime ?? 0) - (b.finishTime ?? 0);
+    if (aFinished && bFinished) {
+      // Les attardés arrêtés au passage du vainqueur ont moins de tours :
+      // ils sont classés derrière malgré un temps final plus court.
+      const aLaps = a.lapsAtFinish ?? a.lap;
+      const bLaps = b.lapsAtFinish ?? b.lap;
+      if (aLaps !== bLaps) return bLaps - aLaps;
+      return (a.finishTime ?? 0) - (b.finishTime ?? 0);
+    }
     if (aFinished !== bFinished) return aFinished ? -1 : 1;
     return b.totalDistance - a.totalDistance;
   });
