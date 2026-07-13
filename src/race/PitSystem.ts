@@ -76,7 +76,9 @@ export class PitSystem {
         break;
       }
       case 'toBox': {
-        const atBox = Math.abs(vehicle.x - box.x) < 18 && vehicle.speed < 2;
+        // L'arrêt exige d'être sur la dalle (tolérance latérale incluse).
+        const atBox =
+          Math.abs(vehicle.x - box.x) < 18 && Math.abs(vehicle.y - box.y) < 15 && vehicle.speed < 2;
         if (atBox) {
           vehicle.pitPhase = 'stopped';
           vehicle.pitStops += 1;

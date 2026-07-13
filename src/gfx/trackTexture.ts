@@ -108,31 +108,75 @@ export function ensureTrackTexture(scene: Phaser.Scene, track: Track): string {
     }
   }
 
-  // — Voie des stands : accès, chaussée, marquages, mur et emplacements.
+  // — Voie des stands : accès, chaussée, tablier des dalles, marquages, mur.
+  const apronBottom = d.pitLane.y1 + 38;
+  const laneLineY = d.pitLane.y2 - 20;
   ctx.fillStyle = DECOR.asphaltPit;
   ctx.fillRect(d.pitEntryZone.x1, d.pitLane.y1, d.pitEntryZone.x2 - d.pitEntryZone.x1, innerEdgeY - d.pitLane.y1);
   ctx.fillRect(d.pitExitZone.x1, d.pitLane.y1, d.pitExitZone.x2 - d.pitExitZone.x1, innerEdgeY - d.pitLane.y1);
   ctx.fillRect(d.pitLane.x1, d.pitLane.y1, d.pitLane.x2 - d.pitLane.x1, d.pitLane.y2 - d.pitLane.y1);
-  // Ligne médiane et limite de vitesse.
+  // Tablier en béton devant les garages, où sont peintes les dalles d'arrêt.
+  const firstBox = d.pitBoxes[0]!;
+  const lastBox = d.pitBoxes[d.pitBoxes.length - 1]!;
+  ctx.fillStyle = '#63636d';
+  ctx.fillRect(firstBox.x - 20, d.pitLane.y1, lastBox.x - firstBox.x + 40, apronBottom - d.pitLane.y1);
+  // Séparation tablier / voie de circulation.
+  ctx.fillStyle = DECOR.lineWhite;
+  ctx.fillRect(firstBox.x - 20, apronBottom, lastBox.x - firstBox.x + 40, 2);
+  // Ligne médiane de circulation et limite de vitesse.
   ctx.setLineDash([12, 14]);
   ctx.strokeStyle = DECOR.lineYellow;
   ctx.lineWidth = 2;
   ctx.beginPath();
-  ctx.moveTo(d.pitLane.x1 + 30, (d.pitLane.y1 + d.pitLane.y2) / 2 + 12);
-  ctx.lineTo(d.pitLane.x2 - 30, (d.pitLane.y1 + d.pitLane.y2) / 2 + 12);
+  ctx.moveTo(d.pitLane.x1 + 30, laneLineY);
+  ctx.lineTo(d.pitLane.x2 - 30, laneLineY);
   ctx.stroke();
   ctx.setLineDash([]);
   ctx.fillStyle = DECOR.lineWhite;
-  ctx.font = 'bold 16px monospace';
+  ctx.font = 'bold 14px monospace';
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
-  ctx.fillText('55', d.pitLane.x1 + 90, d.pitLane.y2 - 16);
-  ctx.fillText('55', d.pitLane.x2 - 90, d.pitLane.y2 - 16);
-  // Damier de la ligne au travers de la voie des stands.
-  for (let row = 0; row < 7; row++) {
+  ctx.fillText('55', d.pitLane.x1 + 80, d.pitLane.y2 - 8);
+  ctx.fillText('55', d.pitLane.x2 - 80, d.pitLane.y2 - 8);
+  // Dalles d'arrêt : sol clair, contour jaune, gros numéro peint.
+  d.pitBoxes.forEach((box, i) => {
+    ctx.fillStyle = '#787882';
+    ctx.fillRect(box.x - 15, d.pitLane.y1 + 2, 30, 32);
+    ctx.strokeStyle = DECOR.lineYellow;
+    ctx.lineWidth = 2;
+    ctx.strokeRect(box.x - 15, d.pitLane.y1 + 2, 30, 32);
+    ctx.fillStyle = DECOR.lineYellow;
+    ctx.font = 'bold 12px monospace';
+    ctx.fillText(String(i + 1), box.x, d.pitLane.y1 + 27);
+    // Matériel entre les dalles : pile de pneus ou bidon de carburant.
+    const gapX = box.x + 19;
+    if (i < d.pitBoxes.length - 1) {
+      if (i % 3 === 2) {
+        ctx.fillStyle = '#c81818';
+        ctx.fillRect(gapX - 3, d.pitLane.y1 + 6, 7, 9);
+        ctx.fillStyle = '#f0f0f0';
+        ctx.fillRect(gapX - 1, d.pitLane.y1 + 4, 3, 2);
+      } else {
+        ctx.fillStyle = '#141418';
+        ctx.beginPath();
+        ctx.arc(gapX, d.pitLane.y1 + 9, 5, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.beginPath();
+        ctx.arc(gapX + 2, d.pitLane.y1 + 16, 5, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = '#3a3a44';
+        ctx.beginPath();
+        ctx.arc(gapX, d.pitLane.y1 + 9, 2, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
+  });
+  // Damier de la ligne au travers de la voie de circulation uniquement.
+  for (let row = 0; row < Math.ceil((d.pitLane.y2 - apronBottom) / 11); row++) {
     for (let col = 0; col < 2; col++) {
       ctx.fillStyle = (row + col) % 2 === 0 ? '#f0f0f0' : '#101014';
-      ctx.fillRect(d.startLineX - 11 + col * 11, d.pitLane.y1 + row * 11, 11, Math.min(11, d.pitLane.y2 - (d.pitLane.y1 + row * 11)));
+      const rowY = apronBottom + 2 + row * 11;
+      ctx.fillRect(d.startLineX - 11 + col * 11, rowY, 11, Math.min(11, d.pitLane.y2 - rowY));
     }
   }
   // Mur des stands.
@@ -140,18 +184,9 @@ export function ensureTrackTexture(scene: Phaser.Scene, track: Track): string {
   ctx.fillRect(d.pitWall.x1, d.pitWall.y - 4, d.pitWall.x2 - d.pitWall.x1, 10);
   ctx.fillStyle = DECOR.wall;
   ctx.fillRect(d.pitWall.x1, d.pitWall.y - 4, d.pitWall.x2 - d.pitWall.x1, 6);
-  // Emplacements de ravitaillement numérotés.
-  ctx.strokeStyle = DECOR.lineYellow;
-  ctx.lineWidth = 2;
-  ctx.font = 'bold 9px monospace';
-  d.pitBoxes.forEach((box, i) => {
-    ctx.strokeRect(box.x - 13, d.pitLane.y1 + 5, 26, 26);
-    ctx.fillStyle = DECOR.lineYellow;
-    ctx.fillText(String(i + 1), box.x, d.pitLane.y1 + 2);
-  });
 
-  // — Bâtiment des stands (garages) au-dessus de la voie.
-  drawPitBuilding(ctx, 880, 820, 740, 56);
+  // — Bâtiment des stands : garages alignés sur les dalles.
+  drawPitBuilding(ctx, firstBox.x - 24, 818, lastBox.x - firstBox.x + 48, 58, d.pitBoxes.map((b) => b.x));
 
   // — Décor d'infield : camions, camping-cars, véhicules de service, arbres.
   drawInfield(ctx, rng, d.centerX, d.centerY);
@@ -219,26 +254,31 @@ function drawBillboards(
   void top;
 }
 
-/** Bâtiment des garages au-dessus de la voie des stands. */
+/** Bâtiment des garages : une porte alignée sur chaque dalle d'arrêt. */
 function drawPitBuilding(
   ctx: CanvasRenderingContext2D,
   x: number,
   y: number,
   width: number,
   height: number,
+  doorCenters: number[],
 ): void {
   ctx.fillStyle = '#9a9aa4';
   ctx.fillRect(x, y, width, height);
   ctx.fillStyle = DECOR.roof;
   ctx.fillRect(x - 6, y - 8, width + 12, 12);
-  ctx.fillStyle = '#3a3a44';
-  for (let doorX = x + 12; doorX + 20 < x + width; doorX += 34) {
-    ctx.fillRect(doorX, y + height - 34, 20, 30);
+  for (const doorX of doorCenters) {
+    ctx.fillStyle = '#3a3a44';
+    ctx.fillRect(doorX - 11, y + height - 32, 22, 30);
+    // Linteau clair au-dessus de chaque porte.
+    ctx.fillStyle = '#c4c4cc';
+    ctx.fillRect(doorX - 11, y + height - 36, 22, 3);
   }
   ctx.fillStyle = '#e8e8e8';
   ctx.font = 'bold 14px monospace';
   ctx.textAlign = 'center';
-  ctx.fillText('STANDS', x + width / 2, y + 12);
+  ctx.textBaseline = 'middle';
+  ctx.fillText('STANDS', x + width / 2, y + 13);
 }
 
 /** Décor central : camions, camping-cars, véhicules de service et arbres. */

@@ -28,11 +28,14 @@ function buildGridSlots(): GridSlot[] {
   return slots;
 }
 
-/** Emplacements de ravitaillement le long du bord supérieur de la voie des stands. */
+/**
+ * Emplacements de ravitaillement : dalles adossées aux garages, sur le
+ * tablier situé au-dessus de la voie de circulation des stands.
+ */
 function buildPitBoxes(): PitBox[] {
   const boxes: PitBox[] = [];
   for (let i = 0; i < 20; i++) {
-    boxes.push({ x: 920 + i * 30, y: 901 });
+    boxes.push({ x: 900 + i * 38, y: 897 });
   }
   return boxes;
 }
@@ -62,8 +65,9 @@ export const CLASSIC_OVAL: TrackData = {
   ],
   gridSlots: buildGridSlots(),
   pitBoxes: buildPitBoxes(),
-  // Voie des stands parallèle à la ligne droite principale, côté intérieur.
-  pitLane: { x1: 700, y1: 880, x2: 1700, y2: 955 },
+  // Voie des stands parallèle à la ligne droite principale, côté intérieur :
+  // tablier des dalles d'arrêt (y 878-916) puis voie de circulation (y 916-955).
+  pitLane: { x1: 700, y1: 878, x2: 1700, y2: 955 },
   pitWall: { x1: 860, x2: 1540, y: 962 },
   pitEntryZone: { x1: 700, x2: 860 },
   pitExitZone: { x1: 1540, x2: 1700 },

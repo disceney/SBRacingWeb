@@ -63,7 +63,9 @@ export class Track {
       outside: this.buildOffsetLine(70),
     };
 
-    const pitY = (data.pitLane.y1 + data.pitLane.y2) / 2;
+    // Ligne de circulation des stands : dans la moitié basse de la voie, à
+    // l'écart des dalles d'arrêt adossées aux garages.
+    const pitY = data.pitLane.y2 - 20;
     const bottomY = data.centerY + this.radius;
     // Entrée : depuis la corde intérieure en sortie de virage 4 vers la voie des stands.
     this.pitEntryLine = new RacingLine(
