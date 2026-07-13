@@ -58,7 +58,9 @@ export class PitSystem {
     const inArea = this.track.isInPitArea(vehicle.x, vehicle.y);
     const box = this.track.data.pitBoxes[vehicle.pitBoxIndex]!;
 
-    if (vehicle.inPit) {
+    // Temps de stands cumulé pendant le transit — pas pour une épave
+    // immobilisée dans la zone.
+    if (vehicle.inPit && vehicle.raceState === 'racing') {
       vehicle.pitTimeTotal += ctx.dt;
     }
 

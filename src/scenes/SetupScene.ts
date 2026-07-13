@@ -67,7 +67,7 @@ export class SetupScene extends Phaser.Scene {
         },
       },
       {
-        label: () => `${t('setup.damage')} : ${t(`setup.fuel.${this.settings.damageLevel}`)}`,
+        label: () => `${t('setup.damage')} : ${t(`setup.damage.${this.settings.damageLevel}`)}`,
         onChange: (dir) => {
           const i = FUEL_LEVELS.indexOf(this.settings.damageLevel);
           this.settings.damageLevel =
