@@ -53,8 +53,9 @@ export class HUD {
     this.speedText = make(130, 14, { fontFamily: 'monospace', fontSize: '26px', color: '#e8e8e8' });
     make(134, 46, FONT_SMALL).setText(t('hud.speedUnit'));
 
-    // Colonne 3 : carburant.
-    make(250, 8, FONT_SMALL).setText(t('hud.fuel'));
+    // Colonne 3 : jauges de carburant et de pneus.
+    make(250, 6, FONT_SMALL).setText(t('hud.fuel'));
+    make(250, 40, FONT_SMALL).setText(t('hud.tires'));
     this.fuelBar = scene.add.graphics().setScrollFactor(0).setDepth(101);
 
     // Colonne 4 : chronos.
@@ -97,26 +98,35 @@ export class HUD {
     this.muteText.setVisible(audio.muted);
   }
 
-  /** Jauge : verte, avertissement < 20 %, clignotante < 10 % (§12.1). */
+  /** Jauges essence et pneus : avertissement < 20 %, clignotement < 10 %. */
   private drawFuel(player: Vehicle, timeMs: number): void {
     const g = this.fuelBar;
-    const ratio = player.fuel / player.spec.fuelCapacity;
-    const x = 250;
-    const y = BAR_TOP + 26;
     g.clear();
+    this.drawGauge(g, BAR_TOP + 19, player.fuel / player.spec.fuelCapacity, timeMs, false);
+    this.drawGauge(g, BAR_TOP + 53, player.tires / 100, timeMs, player.flatTire);
+  }
+
+  private drawGauge(
+    g: Phaser.GameObjects.Graphics,
+    y: number,
+    ratio: number,
+    timeMs: number,
+    flat: boolean,
+  ): void {
+    const x = 250;
     g.fillStyle(0x2a2e38, 1);
-    g.fillRect(x, y, 140, 14);
-    const blink = ratio < 0.1 && Math.floor(timeMs / 250) % 2 === 0;
+    g.fillRect(x, y, 140, 12);
+    const blink = (flat || ratio < 0.1) && Math.floor(timeMs / 250) % 2 === 0;
     if (!blink) {
-      const color = ratio > 0.2 ? 0x38c848 : ratio > 0.1 ? 0xe8a838 : 0xf05840;
+      const color = flat ? 0xf05840 : ratio > 0.2 ? 0x38c848 : ratio > 0.1 ? 0xe8a838 : 0xf05840;
       g.fillStyle(color, 1);
-      g.fillRect(x + 2, y + 2, Math.max(0, 136 * ratio), 10);
+      g.fillRect(x + 2, y + 2, Math.max(0, 136 * (flat ? 1 : ratio)), 8);
     }
     g.lineStyle(1, 0x585f6e, 1);
-    g.strokeRect(x, y, 140, 14);
+    g.strokeRect(x, y, 140, 12);
     // Repère des 20 %.
     g.lineStyle(1, 0x8890a0, 1);
-    g.lineBetween(x + 2 + 136 * 0.2, y, x + 2 + 136 * 0.2, y + 14);
+    g.lineBetween(x + 2 + 136 * 0.2, y, x + 2 + 136 * 0.2, y + 12);
   }
 
   private drawTimes(player: Vehicle): void {
@@ -169,15 +179,23 @@ export class HUD {
         this.statusText.setText(player.raceState === 'finished' ? t('hud.finished') : '');
     }
 
-    // — Avertissements carburant (§12.1) : la criticité prime.
-    const ratio = player.fuel / player.spec.fuelCapacity;
+    // — Avertissements carburant et pneus : la criticité prime.
+    const fuelRatio = player.fuel / player.spec.fuelCapacity;
+    const fuelOn = this.controller.fuelSystem.enabled;
+    const tiresOn = this.controller.tireSystem.enabled;
     const blinkOn = Math.floor(timeMs / 300) % 2 === 0;
-    if (player.raceState === 'fuelOut' || (ratio === 0 && this.controller.fuelSystem.enabled)) {
+    if (player.raceState === 'fuelOut' || (fuelRatio === 0 && fuelOn)) {
       this.warningText.setText(t('hud.warning.fuelOut'));
-    } else if (ratio < 0.05 && this.controller.fuelSystem.enabled) {
+    } else if (tiresOn && player.flatTire) {
+      this.warningText.setText(blinkOn ? t('hud.warning.flatTire') : '');
+    } else if (fuelOn && fuelRatio < 0.05) {
       this.warningText.setText(blinkOn ? t('hud.warning.criticalFuel') : '');
-    } else if (ratio < 0.2 && this.controller.fuelSystem.enabled) {
+    } else if (tiresOn && player.tires < 10) {
+      this.warningText.setText(blinkOn ? t('hud.warning.criticalTires') : '');
+    } else if (fuelOn && fuelRatio < 0.2) {
       this.warningText.setText(t('hud.warning.lowFuel'));
+    } else if (tiresOn && player.tires < 20) {
+      this.warningText.setText(t('hud.warning.lowTires'));
     } else {
       this.warningText.setText('');
     }

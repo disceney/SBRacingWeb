@@ -80,6 +80,41 @@ export function ensureShadowTexture(scene: Phaser.Scene): string {
   return key;
 }
 
+/** Textures des équipiers de stand et du pneu porté, visibles pendant un arrêt. */
+export function ensurePitCrewTextures(scene: Phaser.Scene): void {
+  if (!scene.textures.exists('p-crew')) {
+    const canvas = scene.textures.createCanvas('p-crew', 7, 10);
+    if (canvas) {
+      const ctx = canvas.getContext();
+      ctx.imageSmoothingEnabled = false;
+      // Combinaison blanche, casque rouge, jambes sombres.
+      ctx.fillStyle = '#e8e8e8';
+      ctx.fillRect(1, 3, 5, 4);
+      ctx.fillStyle = '#d82800';
+      ctx.fillRect(1, 0, 5, 3);
+      ctx.fillStyle = '#303038';
+      ctx.fillRect(1, 7, 2, 3);
+      ctx.fillRect(4, 7, 2, 3);
+      canvas.refresh();
+    }
+  }
+  if (!scene.textures.exists('p-tire')) {
+    const canvas = scene.textures.createCanvas('p-tire', 9, 9);
+    if (canvas) {
+      const ctx = canvas.getContext();
+      ctx.fillStyle = '#141418';
+      ctx.beginPath();
+      ctx.arc(4.5, 4.5, 4.5, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = '#3a3a44';
+      ctx.beginPath();
+      ctx.arc(4.5, 4.5, 2, 0, Math.PI * 2);
+      ctx.fill();
+      canvas.refresh();
+    }
+  }
+}
+
 /** Petites textures de particules : fumée, poussière, étincelle. */
 export function ensureParticleTextures(scene: Phaser.Scene): void {
   const defs: Array<{ key: string; color: string; size: number }> = [

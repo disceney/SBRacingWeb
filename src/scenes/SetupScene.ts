@@ -58,6 +58,14 @@ export class SetupScene extends Phaser.Scene {
         },
       },
       {
+        label: () => `${t('setup.tires')} : ${t(`setup.fuel.${this.settings.tireLevel}`)}`,
+        onChange: (dir) => {
+          const i = FUEL_LEVELS.indexOf(this.settings.tireLevel);
+          this.settings.tireLevel =
+            FUEL_LEVELS[(i + dir + FUEL_LEVELS.length) % FUEL_LEVELS.length]!;
+        },
+      },
+      {
         label: () =>
           `${t('setup.collisions')} : ${this.settings.collisions ? t('common.on') : t('common.off')}`,
         onChange: () => {

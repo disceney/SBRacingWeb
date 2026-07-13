@@ -138,6 +138,24 @@ export class AudioManager {
     this.beep(330, 0.25, 0.3);
   }
 
+  /** Crevaison : détonation sourde suivie d'un sifflement d'air. */
+  playPuncture(): void {
+    if (!this.ready()) return;
+    const ctx = this.ctx!;
+    const t = ctx.currentTime;
+    const osc = ctx.createOscillator();
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(220, t);
+    osc.frequency.exponentialRampToValueAtTime(30, t + 0.15);
+    const gain = this.oneshotGain(0.5, 0.18);
+    if (gain) {
+      osc.connect(gain);
+      osc.start(t);
+      osc.stop(t + 0.2);
+    }
+    this.noiseBurst(3200, 0.45, 0.18);
+  }
+
   // — Aides internes.
 
   private ready(): boolean {

@@ -3,7 +3,12 @@ import { FIXED_STEP, GAME_WIDTH, GAME_HEIGHT, MAX_CATCHUP_STEPS } from '../app/c
 import { audio } from '../audio/AudioManager';
 import { CLASSIC_OVAL } from '../data/tracks/classicOval';
 import { t } from '../data/translations';
-import { ensureCarTexture, ensureShadowTexture, ensureParticleTextures } from '../gfx/carTexture';
+import {
+  ensureCarTexture,
+  ensureShadowTexture,
+  ensureParticleTextures,
+  ensurePitCrewTextures,
+} from '../gfx/carTexture';
 import { ensureTrackTexture } from '../gfx/trackTexture';
 import { loadSettings, saveSettings } from '../persistence/storage';
 import { RaceController, type RaceEvent } from '../race/RaceController';
@@ -49,6 +54,8 @@ export class RaceScene extends Phaser.Scene {
 
   private smoke!: Phaser.GameObjects.Particles.ParticleEmitter;
   private dust!: Phaser.GameObjects.Particles.ParticleEmitter;
+  /** Équipiers affichés autour des voitures immobilisées dans leur emplacement. */
+  private pitCrews = new Map<Vehicle, Phaser.GameObjects.Container>();
 
   constructor() {
     super('race');
@@ -63,6 +70,7 @@ export class RaceScene extends Phaser.Scene {
     this.centerTextTimer = 0;
     this.collisionCooldown = 0;
     this.lowFuelAlerted = false;
+    this.pitCrews = new Map();
   }
 
   create(): void {
@@ -70,6 +78,7 @@ export class RaceScene extends Phaser.Scene {
     ensureTrackTexture(this, this.track);
     ensureShadowTexture(this);
     ensureParticleTextures(this);
+    ensurePitCrewTextures(this);
     this.add.image(0, 0, 'track').setOrigin(0, 0);
 
     const field = createRaceField(this.settings, this.track);
@@ -189,6 +198,30 @@ export class RaceScene extends Phaser.Scene {
       sprites.shadow.setPosition(vehicle.x + 2, vehicle.y + 3).setRotation(rotation);
       // Les véhicules hors course restent visibles (obstacles).
       sprites.body.setAlpha(vehicle.raceState === 'fuelOut' ? 0.85 : 1);
+      this.updatePitCrew(vehicle);
+    }
+  }
+
+  /** Fait apparaître les équipiers autour d'une voiture arrêtée à son stand. */
+  private updatePitCrew(vehicle: Vehicle): void {
+    const stopped = vehicle.pitPhase === 'stopped';
+    const existing = this.pitCrews.get(vehicle);
+    if (stopped && !existing) {
+      const box = this.track.data.pitBoxes[vehicle.pitBoxIndex]!;
+      const crew = this.add.container(box.x, box.y).setDepth(7);
+      crew.add([
+        // Ravitailleur à l'arrière de la voiture (côté aileron).
+        this.add.image(-28, 2, 'p-crew'),
+        // Changeurs de pneus à l'avant et à l'arrière, pneu en main.
+        this.add.image(-13, -15, 'p-crew'),
+        this.add.image(-7, -15, 'p-tire'),
+        this.add.image(13, 14, 'p-crew'),
+        this.add.image(19, 14, 'p-tire'),
+      ]);
+      this.pitCrews.set(vehicle, crew);
+    } else if (!stopped && existing) {
+      existing.destroy();
+      this.pitCrews.delete(vehicle);
     }
   }
 
@@ -267,6 +300,12 @@ export class RaceScene extends Phaser.Scene {
         if (event.vehicle.isPlayer) {
           this.showCenterText(t('hud.finished'), 3);
           audio.playFinish();
+        }
+        break;
+      case 'puncture':
+        if (event.vehicle.isPlayer) {
+          this.showCenterText(t('hud.warning.flatTire'), 2.5);
+          audio.playPuncture();
         }
         break;
       case 'raceOver':
