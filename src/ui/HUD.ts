@@ -30,6 +30,7 @@ export class HUD {
   private readonly statusText: Phaser.GameObjects.Text;
   private readonly warningText: Phaser.GameObjects.Text;
   private readonly muteText: Phaser.GameObjects.Text;
+  private readonly autopilotText: Phaser.GameObjects.Text;
 
   constructor(scene: Phaser.Scene, controller: RaceController) {
     this.controller = controller;
@@ -53,9 +54,10 @@ export class HUD {
     this.speedText = make(130, 14, { fontFamily: 'monospace', fontSize: '26px', color: '#e8e8e8' });
     make(134, 46, FONT_SMALL).setText(t('hud.speedUnit'));
 
-    // Colonne 3 : jauges de carburant et de pneus.
+    // Colonne 3 : jauges de carburant, de pneus et d'état mécanique.
     make(250, 6, FONT_SMALL).setText(t('hud.fuel'));
-    make(250, 40, FONT_SMALL).setText(t('hud.tires'));
+    make(250, 30, FONT_SMALL).setText(t('hud.tires'));
+    make(250, 54, FONT_SMALL).setText(t('hud.damage'));
     this.fuelBar = scene.add.graphics().setScrollFactor(0).setDepth(101);
 
     // Colonne 4 : chronos.
@@ -70,6 +72,10 @@ export class HUD {
     this.muteText = scene.add
       .text(GAME_WIDTH - 8, 6, t('race.muted'), { ...FONT_SMALL, color: '#e8a838' })
       .setOrigin(1, 0)
+      .setScrollFactor(0)
+      .setDepth(101);
+    this.autopilotText = scene.add
+      .text(8, 6, `▣ ${t('hud.autopilot')}`, { ...FONT_SMALL, color: '#f0d048' })
       .setScrollFactor(0)
       .setDepth(101);
   }
@@ -96,14 +102,16 @@ export class HUD {
     this.drawStandings();
     this.drawStatus(player, timeMs);
     this.muteText.setVisible(audio.muted);
+    this.autopilotText.setVisible(c.autopilotEnabled);
   }
 
-  /** Jauges essence et pneus : avertissement < 20 %, clignotement < 10 %. */
+  /** Jauges essence, pneus et état : avertissement < 20 %, clignotement < 10 %. */
   private drawFuel(player: Vehicle, timeMs: number): void {
     const g = this.fuelBar;
     g.clear();
-    this.drawGauge(g, BAR_TOP + 19, player.fuel / player.spec.fuelCapacity, timeMs, false);
-    this.drawGauge(g, BAR_TOP + 53, player.tires / 100, timeMs, player.flatTire);
+    this.drawGauge(g, BAR_TOP + 5, player.fuel / player.spec.fuelCapacity, timeMs, false);
+    this.drawGauge(g, BAR_TOP + 29, player.tires / 100, timeMs, player.flatTire);
+    this.drawGauge(g, BAR_TOP + 53, player.health / 100, timeMs, false);
   }
 
   private drawGauge(
@@ -113,20 +121,21 @@ export class HUD {
     timeMs: number,
     flat: boolean,
   ): void {
-    const x = 250;
+    const x = 312;
+    const width = 78;
     g.fillStyle(0x2a2e38, 1);
-    g.fillRect(x, y, 140, 12);
+    g.fillRect(x, y, width, 11);
     const blink = (flat || ratio < 0.1) && Math.floor(timeMs / 250) % 2 === 0;
     if (!blink) {
       const color = flat ? 0xf05840 : ratio > 0.2 ? 0x38c848 : ratio > 0.1 ? 0xe8a838 : 0xf05840;
       g.fillStyle(color, 1);
-      g.fillRect(x + 2, y + 2, Math.max(0, 136 * (flat ? 1 : ratio)), 8);
+      g.fillRect(x + 2, y + 2, Math.max(0, (width - 4) * (flat ? 1 : ratio)), 7);
     }
     g.lineStyle(1, 0x585f6e, 1);
-    g.strokeRect(x, y, 140, 12);
+    g.strokeRect(x, y, width, 11);
     // Repère des 20 %.
     g.lineStyle(1, 0x8890a0, 1);
-    g.lineBetween(x + 2 + 136 * 0.2, y, x + 2 + 136 * 0.2, y + 12);
+    g.lineBetween(x + 2 + (width - 4) * 0.2, y, x + 2 + (width - 4) * 0.2, y + 11);
   }
 
   private drawTimes(player: Vehicle): void {
@@ -179,21 +188,28 @@ export class HUD {
         this.statusText.setText(player.raceState === 'finished' ? t('hud.finished') : '');
     }
 
-    // — Avertissements carburant et pneus : la criticité prime.
+    // — Avertissements carburant, pneus et dégâts : la criticité prime.
     const fuelRatio = player.fuel / player.spec.fuelCapacity;
     const fuelOn = this.controller.fuelSystem.enabled;
     const tiresOn = this.controller.tireSystem.enabled;
+    const damageOn = this.controller.damageSystem.enabled;
     const blinkOn = Math.floor(timeMs / 300) % 2 === 0;
-    if (player.raceState === 'fuelOut' || (fuelRatio === 0 && fuelOn)) {
+    if (player.raceState === 'wrecked') {
+      this.warningText.setText(t('hud.warning.wrecked'));
+    } else if (player.raceState === 'fuelOut' || (fuelRatio === 0 && fuelOn)) {
       this.warningText.setText(t('hud.warning.fuelOut'));
     } else if (tiresOn && player.flatTire) {
       this.warningText.setText(blinkOn ? t('hud.warning.flatTire') : '');
     } else if (fuelOn && fuelRatio < 0.05) {
       this.warningText.setText(blinkOn ? t('hud.warning.criticalFuel') : '');
+    } else if (damageOn && player.health < 20) {
+      this.warningText.setText(blinkOn ? t('hud.warning.criticalDamage') : '');
     } else if (tiresOn && player.tires < 10) {
       this.warningText.setText(blinkOn ? t('hud.warning.criticalTires') : '');
     } else if (fuelOn && fuelRatio < 0.2) {
       this.warningText.setText(t('hud.warning.lowFuel'));
+    } else if (damageOn && player.health < 40) {
+      this.warningText.setText(t('hud.warning.lowDamage'));
     } else if (tiresOn && player.tires < 20) {
       this.warningText.setText(t('hud.warning.lowTires'));
     } else {

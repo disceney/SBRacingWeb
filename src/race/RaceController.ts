@@ -1,8 +1,11 @@
+import { AUTOPILOT_DRIVER } from '../data/drivers';
 import type { Track } from '../track/Track';
+import { AIController } from '../vehicles/AIController';
 import type { Vehicle } from '../vehicles/Vehicle';
 import type { RaceField } from '../vehicles/VehicleFactory';
 import { stepVehiclePhysics } from '../vehicles/VehiclePhysics';
 import { resolveCarCollisions } from '../vehicles/collisions';
+import { DamageSystem } from './DamageSystem';
 import { FuelSystem } from './FuelSystem';
 import { PitSystem } from './PitSystem';
 import { TireSystem } from './TireSystem';
@@ -25,6 +28,7 @@ export type RaceEvent =
   | { type: 'lastLap'; vehicle: Vehicle }
   | { type: 'finished'; vehicle: Vehicle }
   | { type: 'puncture'; vehicle: Vehicle }
+  | { type: 'wrecked'; vehicle: Vehicle }
   | { type: 'raceOver' };
 
 /**
@@ -39,6 +43,7 @@ export class RaceController {
   readonly player: Vehicle;
   readonly fuelSystem: FuelSystem;
   readonly tireSystem: TireSystem;
+  readonly damageSystem: DamageSystem;
   readonly lapTracker: LapTracker;
   private readonly pitSystem: PitSystem;
   private readonly field: RaceField;
@@ -46,6 +51,10 @@ export class RaceController {
   phase: RacePhase = 'countdown';
   countdown = COUNTDOWN_DURATION;
   raceTime = 0;
+  /** Conduite automatique du joueur (basculable en course avec la touche A). */
+  autopilotEnabled = false;
+  /** Pilote artificiel de la voiture du joueur, actif quand autopilotEnabled. */
+  private readonly playerAI: AIController;
   ranking: Vehicle[];
   /** Meilleur tour de la course (§13.2). */
   raceBestLap: { time: number; vehicle: Vehicle } | null = null;
@@ -62,11 +71,21 @@ export class RaceController {
     this.player = field.player;
     this.fuelSystem = new FuelSystem(settings.fuelLevel);
     this.tireSystem = new TireSystem(settings.tireLevel);
-    this.pitSystem = new PitSystem(track, this.fuelSystem, this.tireSystem);
+    this.damageSystem = new DamageSystem(settings.damageLevel);
+    this.pitSystem = new PitSystem(track, this.fuelSystem, this.tireSystem, this.damageSystem);
     this.lapTracker = new LapTracker(track);
     this.lapTracker.onLapCompleted = (vehicle) => this.handleLapCompleted(vehicle);
     this.vehicles.forEach((vehicle) => this.lapTracker.register(vehicle));
     this.ranking = rankVehicles(this.vehicles);
+    this.playerAI = new AIController(this.player, AUTOPILOT_DRIVER, track);
+    this.autopilotEnabled = settings.autopilot;
+  }
+
+  /** Contrôleur IA effectif d'un véhicule (adversaire, ou joueur en autopilote). */
+  private controllerFor(vehicle: Vehicle): AIController | undefined {
+    const ai = this.field.aiControllers.get(vehicle);
+    if (ai) return ai;
+    return vehicle.isPlayer && this.autopilotEnabled ? this.playerAI : undefined;
   }
 
   /** Un pas de simulation à fréquence fixe (§18.2). */
@@ -93,8 +112,7 @@ export class RaceController {
     this.raceTime += dt;
 
     for (const vehicle of this.vehicles) {
-      const ai = this.field.aiControllers.get(vehicle);
-      ai?.update(dt, this.raceTime, this.vehicles);
+      this.controllerFor(vehicle)?.update(dt, this.raceTime, this.vehicles);
       stepVehiclePhysics(vehicle, this.track, dt);
     }
 
@@ -110,13 +128,21 @@ export class RaceController {
         if (tireEvents.punctured) {
           this.onEvent?.({ type: 'puncture', vehicle });
         }
+        const damageEvents = this.damageSystem.step(vehicle);
+        if (damageEvents.wrecked) {
+          this.onEvent?.({ type: 'wrecked', vehicle });
+        }
+      } else {
+        // Les impacts hors course ne s'accumulent pas.
+        vehicle.lastImpact = 0;
       }
-      const ai = this.field.aiControllers.get(vehicle);
+      const ai = this.controllerFor(vehicle);
       const lapsRemaining = Math.max(0, this.settings.laps - Math.max(0, vehicle.lap));
       const events = this.pitSystem.step(vehicle, {
         dt,
         wantPit: ai?.wantPit ?? false,
         lapsRemaining,
+        aiDriven: ai !== undefined,
       });
       // La demande d'arrêt n'est levée qu'après un arrêt effectif : un
       // emplacement manqué (trafic) sera retenté au tour suivant.
@@ -169,7 +195,9 @@ export class RaceController {
           ? 'finished'
           : vehicle.raceState === 'fuelOut'
             ? 'fuelOut'
-            : 'running',
+            : vehicle.raceState === 'wrecked'
+              ? 'wrecked'
+              : 'running',
     }));
   }
 
@@ -214,11 +242,11 @@ export class RaceController {
       if (isNewLap && vehicle.lap === this.settings.laps - 1) {
         this.onEvent?.({ type: 'lastLap', vehicle });
       }
-      const ai = this.field.aiControllers.get(vehicle);
-      ai?.onLapCompleted(
+      this.controllerFor(vehicle)?.onLapCompleted(
         this.settings.laps - vehicle.lap,
         this.fuelSystem.estimateFuelPerLap(),
         this.tireSystem.estimateTiresPerLap(),
+        this.damageSystem.enabled,
       );
     }
   }

@@ -34,11 +34,14 @@ export function stepVehiclePhysics(vehicle: Vehicle, track: Track, dt: number): 
   if (vehicle.flatTire) {
     speedCap = Math.min(speedCap, spec.maxSpeed * FLAT_SPEED_FACTOR);
   }
+  // Dégâts : la vitesse de pointe se dégrade avec l'état mécanique.
+  speedCap = Math.min(speedCap, spec.maxSpeed * (0.55 + 0.45 * vehicle.healthFactor));
 
   // — Accélération moteur (courbe en 1 − v/vMax) modulée par le carburant.
   if (c.throttle > 0 && vehicle.vLong < speedCap) {
     const curve = Math.max(0, 1 - vehicle.vLong / spec.maxSpeed);
-    vehicle.vLong += spec.acceleration * curve * c.throttle * vehicle.powerFactor * dt;
+    const damageFactor = 0.5 + 0.5 * vehicle.healthFactor;
+    vehicle.vLong += spec.acceleration * curve * c.throttle * vehicle.powerFactor * damageFactor * dt;
   }
 
   // — Freinage ; à l'arrêt, le frein enclenche une marche arrière lente.
@@ -66,7 +69,9 @@ export function stepVehiclePhysics(vehicle: Vehicle, track: Track, dt: number): 
 
   // — Direction limitée par l'adhérence : le surplus part en glisse latérale.
   const authority = Math.min(1, Math.abs(vehicle.vLong) / STEER_AUTHORITY_SPEED);
-  const yawRateMax = (spec.steeringRate / (1 + Math.abs(vehicle.vLong) / 150)) * authority;
+  const steerDamage = 0.7 + 0.3 * vehicle.healthFactor;
+  const yawRateMax =
+    (spec.steeringRate / (1 + Math.abs(vehicle.vLong) / 150)) * authority * steerDamage;
   const wantedYaw = c.steer * yawRateMax * Math.sign(vehicle.vLong || 1);
   const gripLimit = spec.lateralGrip * props.grip * vehicle.tireGrip;
   const requiredLat = Math.abs(vehicle.vLong * wantedYaw);
@@ -111,6 +116,8 @@ export function stepVehiclePhysics(vehicle: Vehicle, track: Track, dt: number): 
       vehicle.vLong = rvx * cos + rvy * sin;
       vehicle.vLat = -rvx * sin + rvy * cos;
       vehicle.hitWall = true;
+      // Intensité du choc contre le mur : vitesse normale absorbée.
+      vehicle.lastImpact += -dot;
     }
   }
 }

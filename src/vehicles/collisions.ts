@@ -49,6 +49,9 @@ export function resolveCarCollisions(vehicles: Vehicle[], track: Track): void {
         b.heading += lateralSide(b, -nx, -ny) * kick;
         a.hitCar = true;
         b.hitCar = true;
+        // Intensité du choc mutuel, consommée par le système de dégâts.
+        a.lastImpact += impulse * 2;
+        b.lastImpact += impulse * 2;
       }
     }
   }

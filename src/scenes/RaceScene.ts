@@ -54,6 +54,7 @@ export class RaceScene extends Phaser.Scene {
 
   private smoke!: Phaser.GameObjects.Particles.ParticleEmitter;
   private dust!: Phaser.GameObjects.Particles.ParticleEmitter;
+  private darkSmoke!: Phaser.GameObjects.Particles.ParticleEmitter;
   /** Équipiers affichés autour des voitures immobilisées dans leur emplacement. */
   private pitCrews = new Map<Vehicle, Phaser.GameObjects.Container>();
 
@@ -110,6 +111,14 @@ export class RaceScene extends Phaser.Scene {
       frequency: -1,
     });
     this.dust.setDepth(6);
+    this.darkSmoke = this.add.particles(0, 0, 'p-smoke-dark', {
+      lifespan: 700,
+      alpha: { start: 0.8, end: 0 },
+      scale: { start: 0.8, end: 2.2 },
+      speed: { min: 4, max: 18 },
+      frequency: -1,
+    });
+    this.darkSmoke.setDepth(6);
 
     // — Caméra moderne : suivi lissé avec anticipation (§10.2).
     const cam = this.cameras.main;
@@ -151,6 +160,12 @@ export class RaceScene extends Phaser.Scene {
     keyboard.on('keydown-Q', () => {
       if (this.paused) this.endRace();
     });
+    keyboard.on('keydown-A', () => {
+      if (!this.paused && this.controller.phase !== 'finished') {
+        this.controller.autopilotEnabled = !this.controller.autopilotEnabled;
+        audio.playMenuBlip();
+      }
+    });
 
     audio.unlock();
     audio.startEngine();
@@ -170,7 +185,11 @@ export class RaceScene extends Phaser.Scene {
     let steps = 0;
     while (this.accumulator >= FIXED_STEP && steps < MAX_CATCHUP_STEPS) {
       this.playerInput.locked = this.controller.phase === 'countdown';
-      if (this.controller.player.isRunning || this.controller.player.raceState === 'finished') {
+      // En autopilote, l'IA du joueur écrit les commandes à sa place.
+      if (
+        !this.controller.autopilotEnabled &&
+        (this.controller.player.isRunning || this.controller.player.raceState === 'finished')
+      ) {
         this.playerInput.read(this.controller.player.controls);
       }
       this.controller.step(FIXED_STEP);
@@ -269,13 +288,21 @@ export class RaceScene extends Phaser.Scene {
     }
     if (ratio >= 0.05) this.lowFuelAlerted = false;
 
-    // — Particules de dérapage et de poussière pour toutes les voitures.
+    // — Particules : dérapage, poussière et fumée noire des voitures abîmées.
     for (const vehicle of this.controller.vehicles) {
       if (vehicle.sliding && vehicle.speed > 50) {
         this.smoke.emitParticleAt(vehicle.x, vehicle.y);
       }
       if (vehicle.surface === Surface.Grass && vehicle.speed > 30) {
         this.dust.emitParticleAt(vehicle.x, vehicle.y);
+      }
+      if (
+        this.controller.damageSystem.enabled &&
+        vehicle.health < 30 &&
+        vehicle.raceState !== 'finished' &&
+        Math.random() < 0.35
+      ) {
+        this.darkSmoke.emitParticleAt(vehicle.x, vehicle.y);
       }
     }
   }
@@ -306,6 +333,12 @@ export class RaceScene extends Phaser.Scene {
         if (event.vehicle.isPlayer) {
           this.showCenterText(t('hud.warning.flatTire'), 2.5);
           audio.playPuncture();
+        }
+        break;
+      case 'wrecked':
+        if (event.vehicle.isPlayer) {
+          this.showCenterText(t('hud.warning.wrecked'), 3);
+          audio.playCollision(1);
         }
         break;
       case 'raceOver':

@@ -1,5 +1,6 @@
 import type { Track } from '../track/Track';
 import type { Vehicle } from '../vehicles/Vehicle';
+import { DamageSystem, REPAIR_RATE } from './DamageSystem';
 import { FuelSystem, REFUEL_RATE } from './FuelSystem';
 import { TireSystem, TIRE_SWAP_DURATION } from './TireSystem';
 
@@ -18,6 +19,11 @@ export interface PitContext {
   wantPit: boolean;
   /** Tours restant à couvrir après le tour en cours. */
   lapsRemaining: number;
+  /**
+   * Véhicule conduit par une IA (adversaire ou joueur en autopilote) : les
+   * transitions suivent alors la logique IA, pas la détection de position.
+   */
+  aiDriven: boolean;
 }
 
 /**
@@ -30,14 +36,16 @@ export class PitSystem {
   private readonly track: Track;
   private readonly fuel: FuelSystem;
   private readonly tires: TireSystem;
+  private readonly damage: DamageSystem;
   /** Fenêtre curviligne où une IA décidée à s'arrêter engage son entrée. */
   private readonly turnInFrom: number;
   private readonly turnInTo: number;
 
-  constructor(track: Track, fuel: FuelSystem, tires: TireSystem) {
+  constructor(track: Track, fuel: FuelSystem, tires: TireSystem, damage: DamageSystem) {
     this.track = track;
     this.fuel = fuel;
     this.tires = tires;
+    this.damage = damage;
     const d = track.data;
     const bottomY = d.centerY + d.turnRadius;
     const entryS = track.progressAt(d.pitEntryZone.x1, bottomY);
@@ -56,15 +64,16 @@ export class PitSystem {
 
     switch (vehicle.pitPhase) {
       case 'none': {
-        // IA : engagement anticipé avant la zone d'entrée ; joueur : détection par position.
+        // Conduite IA : engagement anticipé avant la zone d'entrée ;
+        // joueur manuel : détection par position.
         if (
-          !vehicle.isPlayer &&
+          ctx.aiDriven &&
           ctx.wantPit &&
           vehicle.progressS >= this.turnInFrom &&
           vehicle.progressS <= this.turnInTo
         ) {
           vehicle.pitPhase = 'entering';
-        } else if (vehicle.isPlayer && inArea) {
+        } else if (vehicle.isPlayer && !ctx.aiDriven && inArea) {
           vehicle.pitPhase = 'entering';
         }
         break;
@@ -72,7 +81,7 @@ export class PitSystem {
       case 'entering': {
         if (inArea && vehicle.x > this.track.data.pitEntryZone.x2) {
           vehicle.pitPhase = 'toBox';
-        } else if (!inArea && vehicle.isPlayer) {
+        } else if (!inArea && vehicle.isPlayer && !ctx.aiDriven) {
           // Le joueur est ressorti vers la piste sans rejoindre la voie.
           vehicle.pitPhase = 'none';
         }
@@ -94,9 +103,10 @@ export class PitSystem {
         break;
       }
       case 'stopped': {
-        // Ravitaillement automatique (§12.4) et changement de pneus en
-        // parallèle : le train neuf est posé après une durée fixe ; repartir
-        // avant laisse les pneus usés.
+        // Ravitaillement automatique (§12.4), changement de pneus et
+        // réparation en parallèle : le train neuf est posé après une durée
+        // fixe, la mécanique se répare en continu ; repartir avant laisse
+        // pneus usés et dégâts restants.
         vehicle.pitStopElapsed += ctx.dt;
         vehicle.fuel = Math.min(vehicle.spec.fuelCapacity, vehicle.fuel + REFUEL_RATE * ctx.dt);
         if (
@@ -106,11 +116,14 @@ export class PitSystem {
         ) {
           this.tires.swap(vehicle);
         }
-        if (vehicle.isPlayer) {
+        if (this.damage.enabled && vehicle.health > 0) {
+          vehicle.health = Math.min(100, vehicle.health + REPAIR_RATE * ctx.dt);
+        }
+        if (vehicle.isPlayer && !ctx.aiDriven) {
           // Le joueur repart quand il le décide.
           if (vehicle.speed > 8) vehicle.pitPhase = 'exiting';
         } else {
-          // L'IA repart avec le plein utile et, au besoin, ses pneus neufs.
+          // L'IA repart avec le plein utile, ses pneus neufs et une mécanique saine.
           const perLap = this.fuel.estimateFuelPerLap();
           const neededFuel =
             perLap > 0
@@ -118,7 +131,10 @@ export class PitSystem {
               : vehicle.spec.fuelCapacity;
           const wantsTires =
             this.tires.enabled && (vehicle.flatTire || vehicle.tires < 55);
-          if (vehicle.fuel >= neededFuel && !wantsTires) vehicle.pitPhase = 'exiting';
+          const wantsRepair = this.damage.enabled && vehicle.health < 85;
+          if (vehicle.fuel >= neededFuel && !wantsTires && !wantsRepair) {
+            vehicle.pitPhase = 'exiting';
+          }
         }
         break;
       }

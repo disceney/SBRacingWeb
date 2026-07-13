@@ -12,7 +12,7 @@ export interface Controls {
 }
 
 /** État de course d'un véhicule. */
-export type RaceState = 'grid' | 'racing' | 'finished' | 'fuelOut';
+export type RaceState = 'grid' | 'racing' | 'finished' | 'fuelOut' | 'wrecked';
 
 /** Étape courante d'un passage aux stands. */
 export type PitPhase = 'none' | 'entering' | 'toBox' | 'stopped' | 'exiting';
@@ -53,6 +53,14 @@ export class Vehicle {
   flatTire = false;
   /** Facteur d'adhérence lié aux pneus, appliqué par la physique. */
   tireGrip = 1;
+
+  // — Dégâts.
+  /** État mécanique [0 (épave), 100 (intact)]. */
+  health = 100;
+  /** Facteur de dégradation des performances [0, 1], appliqué par la physique. */
+  healthFactor = 1;
+  /** Intensité des impacts subis pendant le pas courant (consommée par DamageSystem). */
+  lastImpact = 0;
   /** Temps passé immobilisé dans l'emplacement lors de l'arrêt en cours (s). */
   pitStopElapsed = 0;
 

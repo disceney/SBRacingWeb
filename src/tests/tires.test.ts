@@ -4,6 +4,7 @@ import { CLASSIC_OVAL } from '../data/tracks/classicOval';
 import { FuelSystem } from '../race/FuelSystem';
 import { PitSystem } from '../race/PitSystem';
 import { FLAT_GRIP, TireSystem } from '../race/TireSystem';
+import { DamageSystem } from '../race/DamageSystem';
 import { Track } from '../track/Track';
 import { Vehicle } from '../vehicles/Vehicle';
 
@@ -102,46 +103,46 @@ describe('changement de pneus aux stands', () => {
     v.x = box.x - 2;
     v.y = box.y;
     v.progressS = track.progressAt(v.x, v.y);
-    pit.step(v, { dt: DT, wantPit: false, lapsRemaining: 2 });
+    pit.step(v, { dt: DT, wantPit: false, lapsRemaining: 2, aiDriven: !v.isPlayer });
     expect(v.pitPhase).toBe('stopped');
   }
 
   it('pneus neufs après 4 s d’arrêt, en parallèle du plein', () => {
-    const pit = new PitSystem(track, new FuelSystem('normal'), new TireSystem('normal'));
+    const pit = new PitSystem(track, new FuelSystem('normal'), new TireSystem('normal'), new DamageSystem('off'));
     const v = makeVehicle(false);
     v.fuel = 60;
     v.tires = 30;
     stopVehicle(pit, v);
     // Après 3 s : toujours les pneus usés.
-    for (let i = 0; i < 180; i++) pit.step(v, { dt: DT, wantPit: false, lapsRemaining: 2 });
+    for (let i = 0; i < 180; i++) pit.step(v, { dt: DT, wantPit: false, lapsRemaining: 2, aiDriven: !v.isPlayer });
     expect(v.tires).toBe(30);
     expect(v.pitPhase).toBe('stopped');
     // Après 4 s : train neuf posé, l'IA peut repartir.
-    for (let i = 0; i < 70; i++) pit.step(v, { dt: DT, wantPit: false, lapsRemaining: 2 });
+    for (let i = 0; i < 70; i++) pit.step(v, { dt: DT, wantPit: false, lapsRemaining: 2, aiDriven: !v.isPlayer });
     expect(v.tires).toBe(100);
     expect(v.pitPhase).toBe('exiting');
   });
 
   it('départ anticipé du joueur : les pneus restent usés', () => {
-    const pit = new PitSystem(track, new FuelSystem('normal'), new TireSystem('normal'));
+    const pit = new PitSystem(track, new FuelSystem('normal'), new TireSystem('normal'), new DamageSystem('off'));
     const v = makeVehicle(true);
     v.tires = 40;
     stopVehicle(pit, v);
     // Le joueur repart après 1 s seulement.
-    for (let i = 0; i < 60; i++) pit.step(v, { dt: DT, wantPit: false, lapsRemaining: 2 });
+    for (let i = 0; i < 60; i++) pit.step(v, { dt: DT, wantPit: false, lapsRemaining: 2, aiDriven: !v.isPlayer });
     v.vLong = 20;
-    pit.step(v, { dt: DT, wantPit: false, lapsRemaining: 2 });
+    pit.step(v, { dt: DT, wantPit: false, lapsRemaining: 2, aiDriven: !v.isPlayer });
     expect(v.pitPhase).toBe('exiting');
     expect(v.tires).toBe(40);
   });
 
   it('une crevaison est réparée par l’arrêt complet', () => {
-    const pit = new PitSystem(track, new FuelSystem('normal'), new TireSystem('normal'));
+    const pit = new PitSystem(track, new FuelSystem('normal'), new TireSystem('normal'), new DamageSystem('off'));
     const v = makeVehicle(false);
     v.tires = 2;
     v.flatTire = true;
     stopVehicle(pit, v);
-    for (let i = 0; i < 250; i++) pit.step(v, { dt: DT, wantPit: false, lapsRemaining: 2 });
+    for (let i = 0; i < 250; i++) pit.step(v, { dt: DT, wantPit: false, lapsRemaining: 2, aiDriven: !v.isPlayer });
     expect(v.flatTire).toBe(false);
     expect(v.tires).toBe(100);
   });

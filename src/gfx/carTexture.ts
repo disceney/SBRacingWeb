@@ -119,6 +119,7 @@ export function ensurePitCrewTextures(scene: Phaser.Scene): void {
 export function ensureParticleTextures(scene: Phaser.Scene): void {
   const defs: Array<{ key: string; color: string; size: number }> = [
     { key: 'p-smoke', color: 'rgba(220,220,220,0.8)', size: 7 },
+    { key: 'p-smoke-dark', color: 'rgba(50,48,52,0.85)', size: 7 },
     { key: 'p-dust', color: 'rgba(150,120,70,0.8)', size: 6 },
     { key: 'p-spark', color: 'rgba(255,220,80,0.95)', size: 3 },
   ];

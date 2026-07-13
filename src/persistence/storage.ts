@@ -42,15 +42,17 @@ export function saveSettings(settings: StoredSettings): void {
 function sanitizeRace(race: Partial<RaceSettings> | undefined): RaceSettings {
   const d = DEFAULT_RACE_SETTINGS;
   if (!race) return { ...d };
+  const level = (value: unknown, fallback: RaceSettings['fuelLevel']): RaceSettings['fuelLevel'] =>
+    ['off', 'reduced', 'normal', 'high'].includes(value as string)
+      ? (value as RaceSettings['fuelLevel'])
+      : fallback;
   return {
-    carCount: clampInt(numberOr(race.carCount, d.carCount), 2, 20),
+    carCount: clampInt(numberOr(race.carCount, d.carCount), 2, 15),
     laps: clampInt(numberOr(race.laps, d.laps), 1, 200),
-    fuelLevel: ['off', 'reduced', 'normal', 'high'].includes(race.fuelLevel as string)
-      ? (race.fuelLevel as RaceSettings['fuelLevel'])
-      : d.fuelLevel,
-    tireLevel: ['off', 'reduced', 'normal', 'high'].includes(race.tireLevel as string)
-      ? (race.tireLevel as RaceSettings['tireLevel'])
-      : d.tireLevel,
+    fuelLevel: level(race.fuelLevel, d.fuelLevel),
+    tireLevel: level(race.tireLevel, d.tireLevel),
+    damageLevel: level(race.damageLevel, d.damageLevel),
+    autopilot: race.autopilot === true,
     collisions: race.collisions !== false,
     playerColorIndex: clampInt(numberOr(race.playerColorIndex, d.playerColorIndex), 0, 19),
     playerNumber: clampInt(numberOr(race.playerNumber, d.playerNumber), 1, 99),

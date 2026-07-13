@@ -31,7 +31,7 @@ describe('sauvegarde locale des réglages (§20)', () => {
     const settings = loadSettings();
     settings.masterVolume = 0.5;
     settings.muted = true;
-    settings.lastRace = { ...settings.lastRace, carCount: 16, laps: 50, fuelLevel: 'high' };
+    settings.lastRace = { ...settings.lastRace, carCount: 14, laps: 50, fuelLevel: 'high' };
     saveSettings(settings);
     const reloaded = loadSettings();
     expect(reloaded).toEqual(settings);
@@ -54,7 +54,7 @@ describe('sauvegarde locale des réglages (§20)', () => {
     const settings = loadSettings();
     expect(settings.masterVolume).toBe(1);
     expect(settings.muted).toBe(false);
-    expect(settings.lastRace.carCount).toBe(20);
+    expect(settings.lastRace.carCount).toBe(15);
     expect(settings.lastRace.laps).toBe(1);
     expect(settings.lastRace.fuelLevel).toBe('normal');
     expect(settings.lastRace.tireLevel).toBe('normal');

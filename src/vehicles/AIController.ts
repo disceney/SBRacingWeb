@@ -47,10 +47,16 @@ export class AIController {
   /**
    * Stratégie de stands, évaluée à chaque tour bouclé (§12.5) : arrêt si le
    * carburant ou les pneus ne permettent pas de finir et que la marge
-   * tolérée est entamée. La marge dépend de pitRisk, ce qui étale
-   * naturellement les arrêts. Une crevaison déclenche l'arrêt immédiatement.
+   * tolérée est entamée, ou si la mécanique devient inquiétante. La marge
+   * dépend de pitRisk, ce qui étale naturellement les arrêts. Une crevaison
+   * déclenche l'arrêt immédiatement.
    */
-  onLapCompleted(lapsRemaining: number, fuelPerLap: number, tiresPerLap: number): void {
+  onLapCompleted(
+    lapsRemaining: number,
+    fuelPerLap: number,
+    tiresPerLap: number,
+    damageEnabled = false,
+  ): void {
     const v = this.vehicle;
     const margin = 1.2 + (1 - this.driver.pitRisk) * 2.2;
 
@@ -60,8 +66,12 @@ export class AIController {
       return lapsLeft < lapsRemaining + 0.3 && lapsLeft < margin;
     };
 
+    // Seuil de dégâts toléré : les prudents rentrent plus tôt.
+    const damageThreshold = 35 + (1 - this.driver.pitRisk) * 15;
+    const needRepair = damageEnabled && v.health < damageThreshold;
+
     this.wantPit =
-      v.flatTire || needFor(v.fuel, fuelPerLap) || needFor(v.tires, tiresPerLap);
+      v.flatTire || needRepair || needFor(v.fuel, fuelPerLap) || needFor(v.tires, tiresPerLap);
   }
 
   update(dt: number, time: number, vehicles: Vehicle[]): void {
@@ -83,8 +93,9 @@ export class AIController {
       return;
     }
 
-    // Une crevaison impose l'arrêt dès le prochain passage devant l'entrée.
-    if (v.flatTire) this.wantPit = true;
+    // Une crevaison ou une mécanique à l'agonie imposent l'arrêt dès le
+    // prochain passage devant l'entrée des stands.
+    if (v.flatTire || (v.health < 18 && v.health > 0)) this.wantPit = true;
 
     if (v.pitPhase !== 'none') {
       this.drivePit(dt);

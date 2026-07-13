@@ -38,7 +38,8 @@ export class SetupScene extends Phaser.Scene {
       {
         label: () => `${t('setup.carCount')} : ${this.settings.carCount}`,
         onChange: (dir) => {
-          this.settings.carCount = clamp(this.settings.carCount + dir, 2, 20);
+          // Quinze concurrents au maximum : un stand attitré chacun.
+          this.settings.carCount = clamp(this.settings.carCount + dir, 2, 15);
         },
       },
       {
@@ -66,10 +67,25 @@ export class SetupScene extends Phaser.Scene {
         },
       },
       {
+        label: () => `${t('setup.damage')} : ${t(`setup.fuel.${this.settings.damageLevel}`)}`,
+        onChange: (dir) => {
+          const i = FUEL_LEVELS.indexOf(this.settings.damageLevel);
+          this.settings.damageLevel =
+            FUEL_LEVELS[(i + dir + FUEL_LEVELS.length) % FUEL_LEVELS.length]!;
+        },
+      },
+      {
         label: () =>
           `${t('setup.collisions')} : ${this.settings.collisions ? t('common.on') : t('common.off')}`,
         onChange: () => {
           this.settings.collisions = !this.settings.collisions;
+        },
+      },
+      {
+        label: () =>
+          `${t('setup.autopilot')} : ${this.settings.autopilot ? t('common.on2') : t('common.off2')}`,
+        onChange: () => {
+          this.settings.autopilot = !this.settings.autopilot;
         },
       },
       {

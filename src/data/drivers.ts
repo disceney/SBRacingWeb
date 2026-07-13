@@ -15,7 +15,18 @@ export interface DriverProfile {
   preferredLine: LineName;
 }
 
-/** Effectif de dix-neuf adversaires (le joueur complète le plateau de vingt). */
+/** Profil utilisé par l'autopilote du joueur : régulier, ni timide ni brutal. */
+export const AUTOPILOT_DRIVER: DriverProfile = {
+  id: 'autopilot',
+  displayName: 'Autopilote',
+  skill: 0.8,
+  aggression: 0.5,
+  consistency: 0.9,
+  pitRisk: 0.4,
+  preferredLine: 'middle',
+};
+
+/** Effectif de dix-neuf adversaires (quatorze au plus courent, plateau de quinze). */
 export const DRIVERS: DriverProfile[] = [
   { id: 'driver-01', displayName: 'B. Steele', skill: 0.95, aggression: 0.7, consistency: 0.92, pitRisk: 0.4, preferredLine: 'inside' },
   { id: 'driver-02', displayName: 'R. Vance', skill: 0.91, aggression: 0.82, consistency: 0.85, pitRisk: 0.62, preferredLine: 'middle' },

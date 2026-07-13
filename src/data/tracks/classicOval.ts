@@ -16,7 +16,7 @@ const BOTTOM_Y = CENTER_Y + TURN_RADIUS;
 /** Grille à deux files derrière la ligne de départ (espacement 65 × 55, §9.2). */
 function buildGridSlots(): GridSlot[] {
   const slots: GridSlot[] = [];
-  for (let i = 0; i < 20; i++) {
+  for (let i = 0; i < 15; i++) {
     const row = Math.floor(i / 2);
     const file = i % 2;
     slots.push({
@@ -29,13 +29,14 @@ function buildGridSlots(): GridSlot[] {
 }
 
 /**
- * Emplacements de ravitaillement : dalles adossées aux garages, sur le
+ * Emplacements de ravitaillement : quinze dalles attitrées (une par
+ * concurrent, quinze voitures au maximum), adossées aux garages sur le
  * tablier situé au-dessus de la voie de circulation des stands.
  */
 function buildPitBoxes(): PitBox[] {
   const boxes: PitBox[] = [];
-  for (let i = 0; i < 20; i++) {
-    boxes.push({ x: 900 + i * 38, y: 897 });
+  for (let i = 0; i < 15; i++) {
+    boxes.push({ x: 900 + i * 42, y: 897 });
   }
   return boxes;
 }
