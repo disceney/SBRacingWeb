@@ -3,6 +3,7 @@ import { STOCK_CAR } from '../data/cars';
 import { CLASSIC_OVAL } from '../data/tracks/classicOval';
 import { FuelSystem } from '../race/FuelSystem';
 import { PitSystem, type PitEvents } from '../race/PitSystem';
+import { TireSystem } from '../race/TireSystem';
 import { Track } from '../track/Track';
 import { Vehicle } from '../vehicles/Vehicle';
 
@@ -32,7 +33,7 @@ function stepAt(
 
 describe('passage aux stands', () => {
   it('joueur : entrée → emplacement → ravitaillement → sortie', () => {
-    const pit = new PitSystem(track, new FuelSystem('normal'));
+    const pit = new PitSystem(track, new FuelSystem('normal'), new TireSystem('off'));
     const v = makeVehicle(true);
     const box = CLASSIC_OVAL.pitBoxes[0]!;
 
@@ -64,7 +65,7 @@ describe('passage aux stands', () => {
 
   it('IA : repart avec le plein utile pour finir la course', () => {
     const fuel = new FuelSystem('normal');
-    const pit = new PitSystem(track, fuel);
+    const pit = new PitSystem(track, fuel, new TireSystem('off'));
     const v = makeVehicle(false);
     const box = CLASSIC_OVAL.pitBoxes[0]!;
     v.pitPhase = 'toBox';
@@ -82,7 +83,7 @@ describe('passage aux stands', () => {
   });
 
   it('IA : engage l’entrée dans la fenêtre quand un arrêt est demandé', () => {
-    const pit = new PitSystem(track, new FuelSystem('normal'));
+    const pit = new PitSystem(track, new FuelSystem('normal'), new TireSystem('off'));
     const v = makeVehicle(false);
     // Sur la piste, juste avant la zone d'entrée des stands.
     const c = track.centerlineAt(track.progressAt(CLASSIC_OVAL.pitEntryZone.x1, 1080) - 60);
@@ -91,7 +92,7 @@ describe('passage aux stands', () => {
   });
 
   it('temps passé aux stands cumulé pendant tout le transit', () => {
-    const pit = new PitSystem(track, new FuelSystem('normal'));
+    const pit = new PitSystem(track, new FuelSystem('normal'), new TireSystem('off'));
     const v = makeVehicle(true);
     stepAt(pit, v, 780, 920);
     for (let i = 0; i < 60; i++) stepAt(pit, v, 900, 920);

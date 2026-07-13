@@ -47,6 +47,15 @@ export class Vehicle {
   /** Temps écoulé depuis la panne sèche (s). */
   fuelOutTime = 0;
 
+  // — Pneus.
+  /** État du train de pneus [0 (mort), 100 (neuf)]. */
+  tires = 100;
+  flatTire = false;
+  /** Facteur d'adhérence lié aux pneus, appliqué par la physique. */
+  tireGrip = 1;
+  /** Temps passé immobilisé dans l'emplacement lors de l'arrêt en cours (s). */
+  pitStopElapsed = 0;
+
   // — Suivi de course.
   raceState: RaceState = 'grid';
   /** Tours complétés. */

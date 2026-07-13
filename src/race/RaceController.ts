@@ -5,6 +5,7 @@ import { stepVehiclePhysics } from '../vehicles/VehiclePhysics';
 import { resolveCarCollisions } from '../vehicles/collisions';
 import { FuelSystem } from './FuelSystem';
 import { PitSystem } from './PitSystem';
+import { TireSystem } from './TireSystem';
 import { LapTracker } from './LapTracker';
 import { rankVehicles } from './RankingSystem';
 import type { RaceResultRow, RaceSettings } from './raceTypes';
@@ -23,6 +24,7 @@ export type RaceEvent =
   | { type: 'lapCompleted'; vehicle: Vehicle }
   | { type: 'lastLap'; vehicle: Vehicle }
   | { type: 'finished'; vehicle: Vehicle }
+  | { type: 'puncture'; vehicle: Vehicle }
   | { type: 'raceOver' };
 
 /**
@@ -36,6 +38,7 @@ export class RaceController {
   readonly vehicles: Vehicle[];
   readonly player: Vehicle;
   readonly fuelSystem: FuelSystem;
+  readonly tireSystem: TireSystem;
   readonly lapTracker: LapTracker;
   private readonly pitSystem: PitSystem;
   private readonly field: RaceField;
@@ -58,7 +61,8 @@ export class RaceController {
     this.vehicles = field.vehicles;
     this.player = field.player;
     this.fuelSystem = new FuelSystem(settings.fuelLevel);
-    this.pitSystem = new PitSystem(track, this.fuelSystem);
+    this.tireSystem = new TireSystem(settings.tireLevel);
+    this.pitSystem = new PitSystem(track, this.fuelSystem, this.tireSystem);
     this.lapTracker = new LapTracker(track);
     this.lapTracker.onLapCompleted = (vehicle) => this.handleLapCompleted(vehicle);
     this.vehicles.forEach((vehicle) => this.lapTracker.register(vehicle));
@@ -102,6 +106,10 @@ export class RaceController {
       this.lapTracker.update(vehicle);
       if (vehicle.raceState === 'racing') {
         this.fuelSystem.step(vehicle, dt);
+        const tireEvents = this.tireSystem.step(vehicle, dt);
+        if (tireEvents.punctured) {
+          this.onEvent?.({ type: 'puncture', vehicle });
+        }
       }
       const ai = this.field.aiControllers.get(vehicle);
       const lapsRemaining = Math.max(0, this.settings.laps - Math.max(0, vehicle.lap));
@@ -207,7 +215,11 @@ export class RaceController {
         this.onEvent?.({ type: 'lastLap', vehicle });
       }
       const ai = this.field.aiControllers.get(vehicle);
-      ai?.onLapCompleted(this.settings.laps - vehicle.lap, this.fuelSystem.estimateFuelPerLap());
+      ai?.onLapCompleted(
+        this.settings.laps - vehicle.lap,
+        this.fuelSystem.estimateFuelPerLap(),
+        this.tireSystem.estimateTiresPerLap(),
+      );
     }
   }
 }

@@ -8,6 +8,8 @@ export interface RaceSettings {
   /** Nombre de tours (5, 10, 20, 30, 50 ou personnalisé). */
   laps: number;
   fuelLevel: FuelLevel;
+  /** Niveau d'usure des pneus (mêmes paliers que la consommation). */
+  tireLevel: FuelLevel;
   collisions: boolean;
   /** Indice de couleur du joueur dans CAR_COLORS. */
   playerColorIndex: number;
@@ -19,6 +21,7 @@ export const DEFAULT_RACE_SETTINGS: RaceSettings = {
   carCount: 10,
   laps: 20,
   fuelLevel: 'normal',
+  tireLevel: 'normal',
   collisions: true,
   playerColorIndex: 0,
   playerNumber: 7,

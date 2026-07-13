@@ -1,6 +1,7 @@
 import type { Track } from '../track/Track';
 import type { Vehicle } from '../vehicles/Vehicle';
 import { FuelSystem, REFUEL_RATE } from './FuelSystem';
+import { TireSystem, TIRE_SWAP_DURATION } from './TireSystem';
 
 /** Événements produits par une mise à jour du système de stands. */
 export interface PitEvents {
@@ -28,13 +29,15 @@ export interface PitContext {
 export class PitSystem {
   private readonly track: Track;
   private readonly fuel: FuelSystem;
+  private readonly tires: TireSystem;
   /** Fenêtre curviligne où une IA décidée à s'arrêter engage son entrée. */
   private readonly turnInFrom: number;
   private readonly turnInTo: number;
 
-  constructor(track: Track, fuel: FuelSystem) {
+  constructor(track: Track, fuel: FuelSystem, tires: TireSystem) {
     this.track = track;
     this.fuel = fuel;
+    this.tires = tires;
     const d = track.data;
     const bottomY = d.centerY + d.turnRadius;
     const entryS = track.progressAt(d.pitEntryZone.x1, bottomY);
@@ -82,6 +85,7 @@ export class PitSystem {
         if (atBox) {
           vehicle.pitPhase = 'stopped';
           vehicle.pitStops += 1;
+          vehicle.pitStopElapsed = 0;
           events.stopped = true;
         } else if (vehicle.x > box.x + 30) {
           // Emplacement manqué ou traversée sans arrêt : direction la sortie.
@@ -90,19 +94,31 @@ export class PitSystem {
         break;
       }
       case 'stopped': {
-        // Ravitaillement automatique, jauge remplie progressivement (§12.4).
+        // Ravitaillement automatique (§12.4) et changement de pneus en
+        // parallèle : le train neuf est posé après une durée fixe ; repartir
+        // avant laisse les pneus usés.
+        vehicle.pitStopElapsed += ctx.dt;
         vehicle.fuel = Math.min(vehicle.spec.fuelCapacity, vehicle.fuel + REFUEL_RATE * ctx.dt);
+        if (
+          this.tires.enabled &&
+          vehicle.pitStopElapsed >= TIRE_SWAP_DURATION &&
+          (vehicle.tires < 100 || vehicle.flatTire)
+        ) {
+          this.tires.swap(vehicle);
+        }
         if (vehicle.isPlayer) {
           // Le joueur repart quand il le décide.
           if (vehicle.speed > 8) vehicle.pitPhase = 'exiting';
         } else {
-          // L'IA repart avec le plein utile : de quoi finir avec une marge.
+          // L'IA repart avec le plein utile et, au besoin, ses pneus neufs.
           const perLap = this.fuel.estimateFuelPerLap();
-          const needed =
+          const neededFuel =
             perLap > 0
               ? Math.min(vehicle.spec.fuelCapacity, perLap * (ctx.lapsRemaining + 1.5))
               : vehicle.spec.fuelCapacity;
-          if (vehicle.fuel >= needed) vehicle.pitPhase = 'exiting';
+          const wantsTires =
+            this.tires.enabled && (vehicle.flatTire || vehicle.tires < 55);
+          if (vehicle.fuel >= neededFuel && !wantsTires) vehicle.pitPhase = 'exiting';
         }
         break;
       }

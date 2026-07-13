@@ -1,4 +1,5 @@
 import { mphToUnits, PIT_SPEED_LIMIT_MPH } from '../app/constants';
+import { FLAT_SPEED_FACTOR } from '../race/TireSystem';
 import { SURFACE_PROPS, Surface } from '../track/trackTypes';
 import type { Track } from '../track/Track';
 import type { Vehicle } from './Vehicle';
@@ -25,10 +26,13 @@ export function stepVehiclePhysics(vehicle: Vehicle, track: Track, dt: number): 
   vehicle.sliding = false;
   vehicle.hitWall = false;
 
-  // — Plafond de vitesse : surface et limite de la voie des stands.
+  // — Plafond de vitesse : surface, limite des stands et pneu crevé.
   let speedCap = spec.maxSpeed * props.maxSpeedFactor;
   if (vehicle.surface === Surface.PitLane) {
     speedCap = Math.min(speedCap, PIT_SPEED_CAP);
+  }
+  if (vehicle.flatTire) {
+    speedCap = Math.min(speedCap, spec.maxSpeed * FLAT_SPEED_FACTOR);
   }
 
   // — Accélération moteur (courbe en 1 − v/vMax) modulée par le carburant.
@@ -64,7 +68,7 @@ export function stepVehiclePhysics(vehicle: Vehicle, track: Track, dt: number): 
   const authority = Math.min(1, Math.abs(vehicle.vLong) / STEER_AUTHORITY_SPEED);
   const yawRateMax = (spec.steeringRate / (1 + Math.abs(vehicle.vLong) / 150)) * authority;
   const wantedYaw = c.steer * yawRateMax * Math.sign(vehicle.vLong || 1);
-  const gripLimit = spec.lateralGrip * props.grip;
+  const gripLimit = spec.lateralGrip * props.grip * vehicle.tireGrip;
   const requiredLat = Math.abs(vehicle.vLong * wantedYaw);
   let yaw = wantedYaw;
   if (requiredLat > gripLimit && Math.abs(vehicle.vLong) > 1) {

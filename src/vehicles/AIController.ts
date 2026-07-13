@@ -46,19 +46,22 @@ export class AIController {
 
   /**
    * Stratégie de stands, évaluée à chaque tour bouclé (§12.5) : arrêt si le
-   * carburant ne permet pas de finir et que la marge tolérée est entamée.
-   * La marge dépend de pitRisk, ce qui étale naturellement les arrêts.
+   * carburant ou les pneus ne permettent pas de finir et que la marge
+   * tolérée est entamée. La marge dépend de pitRisk, ce qui étale
+   * naturellement les arrêts. Une crevaison déclenche l'arrêt immédiatement.
    */
-  onLapCompleted(lapsRemaining: number, fuelPerLap: number): void {
-    if (fuelPerLap <= 0) {
-      this.wantPit = false;
-      return;
-    }
+  onLapCompleted(lapsRemaining: number, fuelPerLap: number, tiresPerLap: number): void {
     const v = this.vehicle;
-    const lapsOfFuel = v.fuel / fuelPerLap;
-    const canFinish = lapsOfFuel >= lapsRemaining + 0.3;
     const margin = 1.2 + (1 - this.driver.pitRisk) * 2.2;
-    this.wantPit = !canFinish && lapsOfFuel < margin;
+
+    const needFor = (reserve: number, perLap: number): boolean => {
+      if (perLap <= 0) return false;
+      const lapsLeft = reserve / perLap;
+      return lapsLeft < lapsRemaining + 0.3 && lapsLeft < margin;
+    };
+
+    this.wantPit =
+      v.flatTire || needFor(v.fuel, fuelPerLap) || needFor(v.tires, tiresPerLap);
   }
 
   update(dt: number, time: number, vehicles: Vehicle[]): void {
@@ -79,6 +82,9 @@ export class AIController {
       c.steer = 0;
       return;
     }
+
+    // Une crevaison impose l'arrêt dès le prochain passage devant l'entrée.
+    if (v.flatTire) this.wantPit = true;
 
     if (v.pitPhase !== 'none') {
       this.drivePit(dt);
@@ -161,9 +167,10 @@ export class AIController {
     const reversed = Math.abs(angleErr) > 2.2;
     v.controls.steer = clamp(angleErr * 2.4 + noise, -1, 1);
 
-    // — Vitesse cible : courbure anticipée + distance de freinage (§11.2).
+    // — Vitesse cible : courbure anticipée + distance de freinage (§11.2),
+    // adhérence réduite par l'usure des pneus.
     const decel = v.spec.braking * 0.92;
-    const gripEff = v.spec.lateralGrip * this.gripFactor;
+    const gripEff = v.spec.lateralGrip * this.gripFactor * v.tireGrip;
     let target = v.spec.maxSpeed * this.pace;
     for (const d of [0, 60, 130, 210, 300, 400]) {
       const k = this.track.curvatureAt(s + lookahead * 0.4 + d);

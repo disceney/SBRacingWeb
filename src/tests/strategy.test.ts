@@ -18,19 +18,19 @@ function makeAI(fuel: number): AIController {
 describe('stratégie de stands de l’IA (§12.5)', () => {
   it('ne s’arrête pas quand le carburant suffit pour finir', () => {
     const ai = makeAI(100);
-    ai.onLapCompleted(5, 8);
+    ai.onLapCompleted(5, 8, 0);
     expect(ai.wantPit).toBe(false);
   });
 
   it('s’arrête quand la réserve devient critique', () => {
     const ai = makeAI(10);
-    ai.onLapCompleted(10, 8);
+    ai.onLapCompleted(10, 8, 0);
     expect(ai.wantPit).toBe(true);
   });
 
   it('jamais d’arrêt quand la consommation est désactivée', () => {
     const ai = makeAI(0);
-    ai.onLapCompleted(10, 0);
+    ai.onLapCompleted(10, 0, 0);
     expect(ai.wantPit).toBe(false);
   });
 
@@ -45,8 +45,8 @@ describe('stratégie de stands de l’IA (§12.5)', () => {
     const aiDaring = new AIController(daring.vehicle, daringDriver, track);
     aiCautious.vehicle.fuel = 24;
     aiDaring.vehicle.fuel = 24;
-    aiCautious.onLapCompleted(20, 8);
-    aiDaring.onLapCompleted(20, 8);
+    aiCautious.onLapCompleted(20, 8, 0);
+    aiDaring.onLapCompleted(20, 8, 0);
     expect(aiCautious.wantPit).toBe(true);
     expect(aiDaring.wantPit).toBe(false);
   });

@@ -48,6 +48,9 @@ function sanitizeRace(race: Partial<RaceSettings> | undefined): RaceSettings {
     fuelLevel: ['off', 'reduced', 'normal', 'high'].includes(race.fuelLevel as string)
       ? (race.fuelLevel as RaceSettings['fuelLevel'])
       : d.fuelLevel,
+    tireLevel: ['off', 'reduced', 'normal', 'high'].includes(race.tireLevel as string)
+      ? (race.tireLevel as RaceSettings['tireLevel'])
+      : d.tireLevel,
     collisions: race.collisions !== false,
     playerColorIndex: clampInt(numberOr(race.playerColorIndex, d.playerColorIndex), 0, 19),
     playerNumber: clampInt(numberOr(race.playerNumber, d.playerNumber), 1, 99),
