@@ -3,8 +3,8 @@ export function formatLapTime(seconds: number | null): string {
   if (seconds === null || !Number.isFinite(seconds)) return '--:--.---';
   const minutes = Math.floor(seconds / 60);
   const rest = seconds - minutes * 60;
-  const restStr = rest.toFixed(3).padStart(6, '0');
-  return minutes > 0 ? `${minutes}:${restStr}` : restStr;
+  // Les secondes ne sont complétées à deux chiffres qu'en présence de minutes.
+  return minutes > 0 ? `${minutes}:${rest.toFixed(3).padStart(6, '0')}` : rest.toFixed(3);
 }
 
 /** Formatage d'un temps total long : "12:34.567". */
