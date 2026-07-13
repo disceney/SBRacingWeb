@@ -48,7 +48,7 @@ describe('sauvegarde locale des réglages (§20)', () => {
       JSON.stringify({
         masterVolume: 7,
         muted: 'oui',
-        lastRace: { carCount: 99, laps: -3, fuelLevel: 'plasma', playerNumber: 250 },
+        lastRace: { carCount: 99, laps: -3, fuelLevel: 'plasma', tireLevel: 'granite', playerNumber: 250 },
       }),
     );
     const settings = loadSettings();
@@ -57,6 +57,7 @@ describe('sauvegarde locale des réglages (§20)', () => {
     expect(settings.lastRace.carCount).toBe(20);
     expect(settings.lastRace.laps).toBe(1);
     expect(settings.lastRace.fuelLevel).toBe('normal');
+    expect(settings.lastRace.tireLevel).toBe('normal');
     expect(settings.lastRace.playerNumber).toBe(99);
   });
 });
