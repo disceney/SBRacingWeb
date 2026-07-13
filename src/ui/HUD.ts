@@ -134,7 +134,7 @@ export class HUD {
     const ranking = this.controller.ranking;
     const playerIndex = ranking.indexOf(this.controller.player);
     // Fenêtre de cinq positions contenant le joueur.
-    let start = Math.max(0, Math.min(playerIndex - 2, ranking.length - 5));
+    const start = Math.max(0, Math.min(playerIndex - 2, ranking.length - 5));
     for (let i = 0; i < this.standingTexts.length; i++) {
       const text = this.standingTexts[i]!;
       const vehicle = ranking[start + i];

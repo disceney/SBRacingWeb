@@ -143,7 +143,7 @@ export class AIController {
 
     // — Cap : correction proportionnelle + bruit d'imprécision du pilote.
     const desired = Math.atan2(targetY - v.y, targetX - v.x);
-    let angleErr = wrapAngle(desired - v.heading);
+    const angleErr = wrapAngle(desired - v.heading);
     const noise = (1 - this.driver.consistency) * 0.055 * Math.sin(time * 1.7 + v.index * 2.3);
     // Tête-à-queue : réalignement prioritaire à vitesse réduite.
     const reversed = Math.abs(angleErr) > 2.2;

@@ -30,14 +30,11 @@ export class RacingLine {
 
   /** Point situé à la distance d le long de la ligne (enroulée si fermée). */
   pointAt(d: number): Point {
-    let dist = d;
-    if (this.closed) {
-      dist = ((d % this.length) + this.length) % this.length;
-    } else {
-      dist = Math.max(0, Math.min(this.length, d));
-    }
+    const dist = this.closed
+      ? ((d % this.length) + this.length) % this.length
+      : Math.max(0, Math.min(this.length, d));
     // Recherche du segment contenant la distance demandée.
-    let i = this.findSegment(dist);
+    const i = this.findSegment(dist);
     const start = this.cumulative[i]!;
     const a = this.points[i]!;
     const b = this.points[(i + 1) % this.points.length]!;
