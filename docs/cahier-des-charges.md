@@ -236,27 +236,27 @@ Le tutoriel explique :
 
 Configuration par défaut :
 
-| Action | Touche |
-|---|---|
-| Tourner à gauche | Flèche gauche |
-| Tourner à droite | Flèche droite |
-| Accélérer | Flèche haut ou Maj |
-| Freiner | Flèche bas ou Ctrl |
-| Pause | Échap |
-| Remise en piste | R |
-| Couper ou réactiver le son | M |
+| Action                     | Touche             |
+|----------------------------|--------------------|
+| Tourner à gauche           | Flèche gauche      |
+| Tourner à droite           | Flèche droite      |
+| Accélérer                  | Flèche haut ou Maj |
+| Freiner                    | Flèche bas ou Ctrl |
+| Pause                      | Échap              |
+| Remise en piste            | R                  |
+| Couper ou réactiver le son | M                  |
 
 Les commandes doivent être entièrement reconfigurables.
 
 ### 7.2 Manette
 
-| Action | Commande |
-|---|---|
-| Direction | Stick gauche ou croix directionnelle |
-| Accélérateur | Gâchette droite |
-| Frein | Gâchette gauche |
-| Pause | Bouton Menu |
-| Remise en piste | Bouton configurable |
+| Action          | Commande                             |
+|-----------------|--------------------------------------|
+| Direction       | Stick gauche ou croix directionnelle |
+| Accélérateur    | Gâchette droite                      |
+| Frein           | Gâchette gauche                      |
+| Pause           | Bouton Menu                          |
+| Remise en piste | Bouton configurable                  |
 
 La détection doit utiliser la Gamepad API.
 
@@ -320,13 +320,13 @@ Ces valeurs devront être équilibrées au cours des tests.
 
 ### 8.4 Surfaces
 
-| Surface | Adhérence | Résistance | Vitesse maximale |
-|---|---:|---:|---:|
-| Asphalte | 100 % | Faible | 100 % |
-| Voie des stands | 100 % | Faible | Limitée |
-| Herbe | 45 % | Élevée | 40 % |
-| Bordure | 75 % | Moyenne | 70 % |
-| Mur | Collision | — | — |
+| Surface         | Adhérence | Résistance | Vitesse maximale |
+|-----------------|----------:|-----------:|-----------------:|
+| Asphalte        |     100 % |     Faible |            100 % |
+| Voie des stands |     100 % |     Faible |          Limitée |
+| Herbe           |      45 % |     Élevée |             40 % |
+| Bordure         |      75 % |    Moyenne |             70 % |
+| Mur             | Collision |          — |                — |
 
 ### 8.5 Collisions
 

@@ -23,14 +23,14 @@ npm run lint     # ESLint
 
 ## Commandes en course
 
-| Action | Touche |
-|---|---|
-| Tourner | Flèches gauche/droite |
-| Accélérer | Flèche haut ou Maj |
-| Freiner / reculer | Flèche bas ou Ctrl |
-| Pause (puis Q pour abandonner) | Échap |
-| Remise en piste | R |
-| Couper / réactiver le son | M |
+| Action                         | Touche                |
+|--------------------------------|-----------------------|
+| Tourner                        | Flèches gauche/droite |
+| Accélérer                      | Flèche haut ou Maj    |
+| Freiner / reculer              | Flèche bas ou Ctrl    |
+| Pause (puis Q pour abandonner) | Échap                 |
+| Remise en piste                | R                     |
+| Couper / réactiver le son      | M                     |
 
 ## Structure
 

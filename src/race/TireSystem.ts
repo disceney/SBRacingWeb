@@ -1,13 +1,13 @@
-import { Surface } from '../track/trackTypes';
-import type { FuelLevel } from './raceTypes';
-import type { Vehicle } from '../vehicles/Vehicle';
+import {Surface} from "../track/trackTypes";
+import type {FuelLevel} from "./raceTypes";
+import type {Vehicle} from "../vehicles/Vehicle";
 
 /** Multiplicateurs des niveaux d'usure (alignés sur ceux de la consommation). */
 const LEVEL_MULTIPLIERS: Record<FuelLevel, number> = {
-  off: 0,
-  reduced: 0.6,
-  normal: 1,
-  high: 1.6,
+	off: 0,
+	reduced: 0.6,
+	normal: 1,
+	high: 1.6,
 };
 
 /** Usure de base (%/s) à pleine vitesse : un train dure ≈ 15 tours en normal. */
@@ -25,8 +25,8 @@ export const FLAT_SPEED_FACTOR = 0.4;
 export const TIRE_SWAP_DURATION = 4;
 
 export interface TireEvents {
-  /** Une crevaison vient de se produire. */
-  punctured?: boolean;
+	/** Une crevaison vient de se produire. */
+	punctured?: boolean;
 }
 
 /**
@@ -36,62 +36,62 @@ export interface TireEvents {
  * voiture jusqu'au changement aux stands.
  */
 export class TireSystem {
-  private readonly multiplier: number;
-  private readonly rng: () => number;
+	private readonly multiplier: number;
+	private readonly rng: () => number;
 
-  constructor(level: FuelLevel, rng: () => number = Math.random) {
-    this.multiplier = LEVEL_MULTIPLIERS[level];
-    this.rng = rng;
-  }
+	constructor(level: FuelLevel, rng: () => number = Math.random) {
+		this.multiplier = LEVEL_MULTIPLIERS[level];
+		this.rng = rng;
+	}
 
-  get enabled(): boolean {
-    return this.multiplier > 0;
-  }
+	get enabled(): boolean {
+		return this.multiplier > 0;
+	}
 
-  step(vehicle: Vehicle, dt: number): TireEvents {
-    if (!this.enabled) {
-      vehicle.tires = 100;
-      vehicle.flatTire = false;
-      vehicle.tireGrip = 1;
-      return {};
-    }
+	step(vehicle: Vehicle, dt: number): TireEvents {
+		if (!this.enabled) {
+			vehicle.tires = 100;
+			vehicle.flatTire = false;
+			vehicle.tireGrip = 1;
+			return {};
+		}
 
-    if (vehicle.tires > 0) {
-      const speedRatio = Math.min(1, vehicle.speed / vehicle.spec.maxSpeed);
-      const slideFactor = vehicle.sliding ? 2.5 : 1;
-      const surfaceFactor =
-        vehicle.surface === Surface.Grass || vehicle.surface === Surface.Kerb ? 1.8 : 1;
-      vehicle.tires = Math.max(
-        0,
-        vehicle.tires - this.multiplier * BASE_WEAR_RATE * speedRatio * slideFactor * surfaceFactor * dt,
-      );
-    }
+		if (vehicle.tires > 0) {
+			const speedRatio = Math.min(1, vehicle.speed / vehicle.spec.maxSpeed);
+			const slideFactor = vehicle.sliding ? 2.5 : 1;
+			const surfaceFactor =
+				vehicle.surface === Surface.Grass || vehicle.surface === Surface.Kerb ? 1.8 : 1;
+			vehicle.tires = Math.max(
+				0,
+				vehicle.tires - this.multiplier * BASE_WEAR_RATE * speedRatio * slideFactor * surfaceFactor * dt,
+			);
+		}
 
-    // — Crevaison : risque croissant sous le seuil, tant que le pneu tient.
-    const events: TireEvents = {};
-    if (!vehicle.flatTire && vehicle.tires < PUNCTURE_THRESHOLD) {
-      const rate = ((PUNCTURE_THRESHOLD - vehicle.tires) / PUNCTURE_THRESHOLD) * MAX_PUNCTURE_RATE;
-      if (this.rng() < rate * dt) {
-        vehicle.flatTire = true;
-        events.punctured = true;
-      }
-    }
+		// — Crevaison : risque croissant sous le seuil, tant que le pneu tient.
+		const events: TireEvents = {};
+		if (!vehicle.flatTire && vehicle.tires < PUNCTURE_THRESHOLD) {
+			const rate = ((PUNCTURE_THRESHOLD - vehicle.tires) / PUNCTURE_THRESHOLD) * MAX_PUNCTURE_RATE;
+			if (this.rng() < rate * dt) {
+				vehicle.flatTire = true;
+				events.punctured = true;
+			}
+		}
 
-    vehicle.tireGrip = vehicle.flatTire
-      ? FLAT_GRIP
-      : 1 - MAX_GRIP_LOSS * (1 - vehicle.tires / 100);
-    return events;
-  }
+		vehicle.tireGrip = vehicle.flatTire
+			? FLAT_GRIP
+			: 1 - MAX_GRIP_LOSS * (1 - vehicle.tires / 100);
+		return events;
+	}
 
-  /** Pneus neufs (changement effectué aux stands). */
-  swap(vehicle: Vehicle): void {
-    vehicle.tires = 100;
-    vehicle.flatTire = false;
-    vehicle.tireGrip = 1;
-  }
+	/** Pneus neufs (changement effectué aux stands). */
+	swap(vehicle: Vehicle): void {
+		vehicle.tires = 100;
+		vehicle.flatTire = false;
+		vehicle.tireGrip = 1;
+	}
 
-  /** Estimation de l'usure par tour au rythme de course (≈ 21 s/tour). */
-  estimateTiresPerLap(): number {
-    return this.multiplier * 6.7;
-  }
+	/** Estimation de l'usure par tour au rythme de course (≈ 21 s/tour). */
+	estimateTiresPerLap(): number {
+		return this.multiplier * 6.7;
+	}
 }
