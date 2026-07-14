@@ -128,9 +128,9 @@ describe('changement de pneus aux stands', () => {
     const v = makeVehicle(true);
     v.tires = 40;
     stopVehicle(pit, v);
-    // Le joueur repart après 1 s seulement.
+    // Le joueur repart après 1 s seulement, en accélérant.
     for (let i = 0; i < 60; i++) pit.step(v, { dt: DT, wantPit: false, lapsRemaining: 2, aiDriven: !v.isPlayer });
-    v.vLong = 20;
+    v.controls.throttle = 1;
     pit.step(v, { dt: DT, wantPit: false, lapsRemaining: 2, aiDriven: !v.isPlayer });
     expect(v.pitPhase).toBe('exiting');
     expect(v.tires).toBe(40);

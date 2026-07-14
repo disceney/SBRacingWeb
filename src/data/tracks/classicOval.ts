@@ -36,7 +36,7 @@ function buildGridSlots(): GridSlot[] {
 function buildPitBoxes(): PitBox[] {
   const boxes: PitBox[] = [];
   for (let i = 0; i < 15; i++) {
-    boxes.push({ x: 900 + i * 42, y: 897 });
+    boxes.push({ x: 880 + i * 46, y: 897 });
   }
   return boxes;
 }

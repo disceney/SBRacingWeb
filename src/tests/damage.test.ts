@@ -93,8 +93,8 @@ describe('dégâts mécaniques', () => {
       pit.step(v, { dt: DT, wantPit: false, lapsRemaining: 2, aiDriven: false });
     }
     expect(v.health).toBeCloseTo(65, 0);
-    // Départ anticipé : les dégâts restants demeurent.
-    v.vLong = 20;
+    // Départ anticipé en accélérant : les dégâts restants demeurent.
+    v.controls.throttle = 1;
     pit.step(v, { dt: DT, wantPit: false, lapsRemaining: 2, aiDriven: false });
     expect(v.pitPhase).toBe('exiting');
     expect(v.health).toBeLessThan(70);

@@ -83,28 +83,44 @@ export class PitSystem {
       case 'entering': {
         if (inArea && vehicle.x > this.track.data.pitEntryZone.x2) {
           vehicle.pitPhase = 'toBox';
-        } else if (!inArea && vehicle.isPlayer && !ctx.aiDriven) {
-          // Le joueur est ressorti vers la piste sans rejoindre la voie.
-          vehicle.pitPhase = 'none';
+        } else if (!inArea) {
+          if (vehicle.isPlayer && !ctx.aiDriven) {
+            // Le joueur est ressorti vers la piste sans rejoindre la voie.
+            vehicle.pitPhase = 'none';
+          } else {
+            // IA : entrée manquée (trafic, incident). Nettement au-delà de la
+            // zone d'accès, on rend la main — nouvelle tentative au tour
+            // suivant (wantPit reste actif).
+            const lap = this.track.lapLength;
+            const past = (((vehicle.progressS - this.turnInTo) % lap) + lap) % lap;
+            if (past > 230 && past < lap / 2) vehicle.pitPhase = 'none';
+          }
         }
         break;
       }
       case 'toBox': {
-        // L'arrêt exige d'être sur la dalle (tolérance latérale incluse).
-        const atBox =
-          Math.abs(vehicle.x - box.x) < 18 && Math.abs(vehicle.y - box.y) < 15 && vehicle.speed < 2;
-        if (atBox) {
+        // Accrochage automatique : à l'approche lente de sa dalle, la
+        // voiture y est posée proprement (fini les oscillations de freinage).
+        const nearBox =
+          Math.abs(vehicle.x - box.x) < 22 &&
+          Math.abs(vehicle.y - box.y) < 20 &&
+          vehicle.speed < 30;
+        if (nearBox) {
+          dockAtBox(vehicle, box.x, box.y);
           vehicle.pitPhase = 'stopped';
           vehicle.pitStops += 1;
           vehicle.pitStopElapsed = 0;
           events.stopped = true;
-        } else if (vehicle.x > box.x + 30) {
+        } else if (vehicle.x > box.x + 34) {
           // Emplacement manqué ou traversée sans arrêt : direction la sortie.
           vehicle.pitPhase = 'exiting';
         }
         break;
       }
       case 'stopped': {
+        // Voiture accrochée à sa dalle pendant toute la durée des
+        // opérations : position et vitesses verrouillées.
+        dockAtBox(vehicle, box.x, box.y);
         // Ravitaillement automatique (§12.4), changement de pneus et
         // réparation en parallèle : le train neuf est posé après une durée
         // fixe, la mécanique se répare en continu ; repartir avant laisse
@@ -122,8 +138,8 @@ export class PitSystem {
           vehicle.health = Math.min(100, vehicle.health + REPAIR_RATE * ctx.dt);
         }
         if (vehicle.isPlayer && !ctx.aiDriven) {
-          // Le joueur repart quand il le décide.
-          if (vehicle.speed > 8) vehicle.pitPhase = 'exiting';
+          // Le joueur se décroche en accélérant : il rejoint la voie lui-même.
+          if (vehicle.controls.throttle > 0.5) vehicle.pitPhase = 'exiting';
         } else {
           // L'IA repart avec le plein utile, ses pneus neufs et une mécanique saine.
           const perLap = this.fuel.estimateFuelPerLap();
@@ -150,4 +166,13 @@ export class PitSystem {
     }
     return events;
   }
+}
+
+/** Pose la voiture proprement sur sa dalle, à l'arrêt et dans l'axe. */
+function dockAtBox(vehicle: Vehicle, x: number, y: number): void {
+  vehicle.x = x;
+  vehicle.y = y;
+  vehicle.heading = 0;
+  vehicle.vLong = 0;
+  vehicle.vLat = 0;
 }

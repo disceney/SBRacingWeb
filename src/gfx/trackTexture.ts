@@ -119,10 +119,10 @@ export function ensureTrackTexture(scene: Phaser.Scene, track: Track): string {
   const firstBox = d.pitBoxes[0]!;
   const lastBox = d.pitBoxes[d.pitBoxes.length - 1]!;
   ctx.fillStyle = '#63636d';
-  ctx.fillRect(firstBox.x - 20, d.pitLane.y1, lastBox.x - firstBox.x + 40, apronBottom - d.pitLane.y1);
+  ctx.fillRect(firstBox.x - 24, d.pitLane.y1, lastBox.x - firstBox.x + 48, apronBottom - d.pitLane.y1);
   // Séparation tablier / voie de circulation.
   ctx.fillStyle = DECOR.lineWhite;
-  ctx.fillRect(firstBox.x - 20, apronBottom, lastBox.x - firstBox.x + 40, 2);
+  ctx.fillRect(firstBox.x - 24, apronBottom, lastBox.x - firstBox.x + 48, 2);
   // Ligne médiane de circulation et limite de vitesse.
   ctx.setLineDash([12, 14]);
   ctx.strokeStyle = DECOR.lineYellow;
@@ -138,38 +138,34 @@ export function ensureTrackTexture(scene: Phaser.Scene, track: Track): string {
   ctx.textBaseline = 'middle';
   ctx.fillText('55', d.pitLane.x1 + 80, d.pitLane.y2 - 8);
   ctx.fillText('55', d.pitLane.x2 - 80, d.pitLane.y2 - 8);
-  // Dalles d'arrêt : sol clair, contour jaune, gros numéro peint.
+  // Dalles d'arrêt agrandies : sol clair, contour jaune, gros numéro peint
+  // et matériel (pneus, bidon) posé dans les coins de la dalle.
   d.pitBoxes.forEach((box, i) => {
     ctx.fillStyle = '#787882';
-    ctx.fillRect(box.x - 15, d.pitLane.y1 + 2, 30, 32);
+    ctx.fillRect(box.x - 21, d.pitLane.y1 + 2, 42, 34);
     ctx.strokeStyle = DECOR.lineYellow;
     ctx.lineWidth = 2;
-    ctx.strokeRect(box.x - 15, d.pitLane.y1 + 2, 30, 32);
+    ctx.strokeRect(box.x - 21, d.pitLane.y1 + 2, 42, 34);
     ctx.fillStyle = DECOR.lineYellow;
-    ctx.font = 'bold 12px monospace';
-    ctx.fillText(String(i + 1), box.x, d.pitLane.y1 + 27);
-    // Matériel entre les dalles : pile de pneus ou bidon de carburant.
-    const gapX = box.x + 19;
-    if (i < d.pitBoxes.length - 1) {
-      if (i % 3 === 2) {
-        ctx.fillStyle = '#c81818';
-        ctx.fillRect(gapX - 3, d.pitLane.y1 + 6, 7, 9);
-        ctx.fillStyle = '#f0f0f0';
-        ctx.fillRect(gapX - 1, d.pitLane.y1 + 4, 3, 2);
-      } else {
-        ctx.fillStyle = '#141418';
-        ctx.beginPath();
-        ctx.arc(gapX, d.pitLane.y1 + 9, 5, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.beginPath();
-        ctx.arc(gapX + 2, d.pitLane.y1 + 16, 5, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.fillStyle = '#3a3a44';
-        ctx.beginPath();
-        ctx.arc(gapX, d.pitLane.y1 + 9, 2, 0, Math.PI * 2);
-        ctx.fill();
-      }
-    }
+    ctx.font = 'bold 14px monospace';
+    ctx.fillText(String(i + 1), box.x, d.pitLane.y1 + 28);
+    // Pile de pneus dans le coin supérieur droit.
+    ctx.fillStyle = '#141418';
+    ctx.beginPath();
+    ctx.arc(box.x + 14, d.pitLane.y1 + 8, 4, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.beginPath();
+    ctx.arc(box.x + 14, d.pitLane.y1 + 15, 4, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = '#3a3a44';
+    ctx.beginPath();
+    ctx.arc(box.x + 14, d.pitLane.y1 + 8, 1.5, 0, Math.PI * 2);
+    ctx.fill();
+    // Bidon de carburant dans le coin supérieur gauche.
+    ctx.fillStyle = '#c81818';
+    ctx.fillRect(box.x - 18, d.pitLane.y1 + 6, 6, 8);
+    ctx.fillStyle = '#f0f0f0';
+    ctx.fillRect(box.x - 16, d.pitLane.y1 + 4, 3, 2);
   });
   // Damier de la ligne au travers de la voie de circulation uniquement.
   for (let row = 0; row < Math.ceil((d.pitLane.y2 - apronBottom) / 11); row++) {
@@ -269,10 +265,10 @@ function drawPitBuilding(
   ctx.fillRect(x - 6, y - 8, width + 12, 12);
   for (const doorX of doorCenters) {
     ctx.fillStyle = '#3a3a44';
-    ctx.fillRect(doorX - 11, y + height - 32, 22, 30);
+    ctx.fillRect(doorX - 15, y + height - 32, 30, 30);
     // Linteau clair au-dessus de chaque porte.
     ctx.fillStyle = '#c4c4cc';
-    ctx.fillRect(doorX - 11, y + height - 36, 22, 3);
+    ctx.fillRect(doorX - 15, y + height - 36, 30, 3);
   }
   ctx.fillStyle = '#e8e8e8';
   ctx.font = 'bold 14px monospace';

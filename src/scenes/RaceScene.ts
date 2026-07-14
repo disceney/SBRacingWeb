@@ -120,6 +120,21 @@ export class RaceScene extends Phaser.Scene {
     });
     this.darkSmoke.setDepth(6);
 
+    // — Surbrillance pulsante de la dalle attitrée du joueur (cyan pour
+    // contraster avec les contours jaunes des dalles).
+    const playerBox = this.track.data.pitBoxes[this.controller.player.pitBoxIndex]!;
+    const highlight = this.add
+      .rectangle(playerBox.x, playerBox.y, 46, 38, 0x40e0ff, 0.22)
+      .setStrokeStyle(3, 0x40e0ff, 1)
+      .setDepth(3);
+    this.tweens.add({
+      targets: highlight,
+      alpha: { from: 1, to: 0.4 },
+      duration: 550,
+      yoyo: true,
+      repeat: -1,
+    });
+
     // — Caméra moderne : suivi lissé avec anticipation (§10.2).
     const cam = this.cameras.main;
     cam.setBounds(0, 0, this.track.data.worldWidth, this.track.data.worldHeight);
@@ -178,35 +193,37 @@ export class RaceScene extends Phaser.Scene {
   }
 
   override update(_time: number, deltaMs: number): void {
-    if (this.paused) return;
-
-    // — Boucle à pas fixe avec rattrapage plafonné (§18.2).
-    this.accumulator += Math.min(deltaMs / 1000, 0.25);
-    let steps = 0;
-    while (this.accumulator >= FIXED_STEP && steps < MAX_CATCHUP_STEPS) {
-      this.playerInput.locked = this.controller.phase === 'countdown';
-      // En autopilote, l'IA du joueur écrit les commandes à sa place.
-      if (
-        !this.controller.autopilotEnabled &&
-        (this.controller.player.isRunning || this.controller.player.raceState === 'finished')
-      ) {
-        this.playerInput.read(this.controller.player.controls);
+    if (!this.paused) {
+      // — Boucle à pas fixe avec rattrapage plafonné (§18.2).
+      this.accumulator += Math.min(deltaMs / 1000, 0.25);
+      let steps = 0;
+      while (this.accumulator >= FIXED_STEP && steps < MAX_CATCHUP_STEPS) {
+        this.playerInput.locked = this.controller.phase === 'countdown';
+        // En autopilote, l'IA du joueur écrit les commandes à sa place.
+        if (
+          !this.controller.autopilotEnabled &&
+          (this.controller.player.isRunning || this.controller.player.raceState === 'finished')
+        ) {
+          this.playerInput.read(this.controller.player.controls);
+        }
+        this.controller.step(FIXED_STEP);
+        this.accumulator -= FIXED_STEP;
+        steps++;
       }
-      this.controller.step(FIXED_STEP);
-      this.accumulator -= FIXED_STEP;
-      steps++;
-    }
-    if (steps === MAX_CATCHUP_STEPS) this.accumulator = 0;
+      if (steps === MAX_CATCHUP_STEPS) this.accumulator = 0;
 
+      this.updateAudioAndEffects(deltaMs / 1000);
+
+      if (this.centerTextTimer > 0) {
+        this.centerTextTimer -= deltaMs / 1000;
+        if (this.centerTextTimer <= 0) this.centerText.setText('');
+      }
+    }
+
+    // Le rendu reste actif même en pause : l'écran reflète l'état réel.
     this.renderVehicles();
     this.updateCamera(deltaMs / 1000);
-    this.updateAudioAndEffects(deltaMs / 1000);
     this.hud.update(_time);
-
-    if (this.centerTextTimer > 0) {
-      this.centerTextTimer -= deltaMs / 1000;
-      if (this.centerTextTimer <= 0) this.centerText.setText('');
-    }
   }
 
   /** Positionne sprites et ombres, orientation quantifiée sur 32 pas. */

@@ -54,9 +54,9 @@ describe('passage aux stands', () => {
     // Jauge remplie progressivement (25 unités/s, §12.4).
     for (let i = 0; i < 60; i++) stepAt(pit, v, box.x - 2, box.y);
     expect(v.fuel).toBeCloseTo(20 + 25, 0);
-    // Départ anticipé possible.
-    v.vLong = 20;
-    stepAt(pit, v, box.x + 10, box.y);
+    // Départ anticipé possible : le joueur se décroche en accélérant.
+    v.controls.throttle = 1;
+    stepAt(pit, v, box.x, box.y);
     expect(v.pitPhase).toBe('exiting');
     // Retour en piste.
     const exited = stepAt(pit, v, 1200, 1080);
@@ -90,6 +90,23 @@ describe('passage aux stands', () => {
     const c = track.centerlineAt(track.progressAt(CLASSIC_OVAL.pitEntryZone.x1, 1080) - 60);
     stepAt(pit, v, c.x, c.y, true, 6);
     expect(v.pitPhase).toBe('entering');
+  });
+
+  it('accrochage automatique : approche lente → posée exactement sur la dalle', () => {
+    const pit = new PitSystem(track, new FuelSystem('normal'), new TireSystem('off'), new DamageSystem('off'));
+    const v = makeVehicle(false);
+    const box = CLASSIC_OVAL.pitBoxes[0]!;
+    v.pitPhase = 'toBox';
+    // Arrive en biais, encore en mouvement, à 15 unités de la dalle.
+    v.vLong = 25;
+    v.heading = 0.3;
+    const events = stepAt(pit, v, box.x - 15, box.y - 10);
+    expect(events.stopped).toBe(true);
+    expect(v.pitPhase).toBe('stopped');
+    expect(v.x).toBe(box.x);
+    expect(v.y).toBe(box.y);
+    expect(v.heading).toBe(0);
+    expect(v.speed).toBe(0);
   });
 
   it('temps passé aux stands cumulé pendant tout le transit', () => {
