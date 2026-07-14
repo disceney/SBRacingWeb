@@ -55,9 +55,29 @@ describe("sauvegarde locale des réglages (§20)", () => {
 		expect(settings.masterVolume).toBe(1);
 		expect(settings.muted).toBe(false);
 		expect(settings.lastRace.carCount).toBe(15);
-		expect(settings.lastRace.laps).toBe(1);
+		expect(settings.lastRace.laps).toBe(20);
 		expect(settings.lastRace.fuelLevel).toBe("normal");
 		expect(settings.lastRace.tireLevel).toBe("normal");
 		expect(settings.lastRace.playerNumber).toBe(99);
+	});
+
+	it("nombre de tours assaini : minimum 20, maximum 200", () => {
+		store.set(
+			"sb-racing-web:settings",
+			JSON.stringify({lastRace: {laps: 5}}),
+		);
+		expect(loadSettings().lastRace.laps).toBe(20);
+
+		store.set(
+			"sb-racing-web:settings",
+			JSON.stringify({lastRace: {laps: 999}}),
+		);
+		expect(loadSettings().lastRace.laps).toBe(200);
+
+		store.set(
+			"sb-racing-web:settings",
+			JSON.stringify({lastRace: {laps: 50}}),
+		);
+		expect(loadSettings().lastRace.laps).toBe(50);
 	});
 });

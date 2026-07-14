@@ -40,6 +40,13 @@ export class Vehicle {
 	controls: Controls = {throttle: 0, brake: 0, steer: 0};
 	surface: Surface = Surface.Asphalt;
 
+	// — Toupie (tête-à-queue) : au-delà de l'adhérence, tenu durablement, le
+	// pilote perd le contrôle. spinning est lu par le rendu et l'IA ;
+	// spinHeat est un accumulateur interne à VehiclePhysics (signe = sens du
+	// dérapage), non destiné aux autres systèmes.
+	spinning = false;
+	spinHeat = 0;
+
 	// — Carburant.
 	fuel: number;
 	/** Facteur de puissance moteur [0, 1], réduit en panne sèche. */

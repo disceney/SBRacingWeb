@@ -29,6 +29,12 @@ export class AIController {
 	/** Rythme global dérivé du niveau du pilote. */
 	private readonly pace: number;
 	private readonly gripFactor: number;
+	/**
+	 * Marge de sécurité sous la limite d'adhérence en virage (§11.2) : les
+	 * agressifs s'en approchent davantage, sans jamais déclencher de toupie
+	 * à un rythme normal.
+	 */
+	private readonly spinSafety: number;
 	private stuckTimer = 0;
 	private reverseTimer = 0;
 
@@ -40,6 +46,7 @@ export class AIController {
 		this.targetOffset = this.offset;
 		this.pace = 0.86 + driver.skill * 0.13;
 		this.gripFactor = 0.9 + driver.skill * 0.12;
+		this.spinSafety = 0.97 + driver.aggression * 0.02;
 	}
 
 	/**
@@ -78,6 +85,16 @@ export class AIController {
 		if (!v.isRunning && v.raceState !== "finished") {
 			c.throttle = 0;
 			c.brake = 1;
+			c.steer = 0;
+			return;
+		}
+
+		// — Toupie en cours : la physique impose déjà la rotation, seul
+		// l'accélérateur est coupé ; le réalignement de driveTrack (cible
+		// « reversed ») reprend la main dès que le contrôle revient.
+		if (v.spinning) {
+			c.throttle = 0;
+			c.brake = 0;
 			c.steer = 0;
 			return;
 		}
@@ -184,7 +201,7 @@ export class AIController {
 		for (const d of [0, 60, 130, 210, 300, 400]) {
 			const k = this.track.curvatureAt(s + lookahead * 0.4 + d);
 			if (k > 0) {
-				const vCorner = Math.sqrt(gripEff / k) * this.pace;
+				const vCorner = Math.sqrt(gripEff / k) * this.pace * this.spinSafety;
 				const vHere = Math.sqrt(vCorner * vCorner + 2 * decel * d);
 				target = Math.min(target, vHere);
 			}

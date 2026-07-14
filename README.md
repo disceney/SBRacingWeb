@@ -6,6 +6,11 @@ vue du dessus, peloton d'IA, carburant et arrêts aux stands. Code, graphismes
 
 Le périmètre livré correspond au MVP du [cahier des charges](docs/cahier-des-charges.md) (§4.1).
 
+## Jouer en ligne
+
+Le jeu est jouable directement dans le navigateur, sans installation :
+**[disceney.github.io/SBRacingWeb](https://disceney.github.io/SBRacingWeb/)**
+
 ## Prérequis
 
 - Node.js ≥ 20

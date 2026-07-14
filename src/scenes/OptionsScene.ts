@@ -24,28 +24,35 @@ export class OptionsScene extends Phaser.Scene {
 			})
 			.setOrigin(0.5);
 
-		new MenuList(this, 320, 200, [
-			{
-				label: () => `${t("options.volume")} : ${Math.round(this.settings.masterVolume * 100)} %`,
-				onChange: (dir) => {
-					this.settings.masterVolume = Math.max(
-						0,
-						Math.min(1, this.settings.masterVolume + dir * 0.1),
-					);
-					this.apply();
+		new MenuList(
+			this,
+			320,
+			200,
+			[
+				{
+					label: () => `${t("options.volume")} : ${Math.round(this.settings.masterVolume * 100)} %`,
+					onChange: (dir) => {
+						this.settings.masterVolume = Math.max(
+							0,
+							Math.min(1, this.settings.masterVolume + dir * 0.1),
+						);
+						this.apply();
+					},
 				},
-			},
-			{
-				label: () =>
-					`${t("options.mute")} : ${this.settings.muted ? t("options.mute.on") : t("options.mute.off")}`,
-				onChange: () => {
-					this.settings.muted = !this.settings.muted;
-					this.apply();
+				{
+					label: () =>
+						`${t("options.mute")} : ${this.settings.muted ? t("options.mute.on") : t("options.mute.off")}`,
+					onChange: () => {
+						this.settings.muted = !this.settings.muted;
+						this.apply();
+					},
 				},
-			},
-			{label: () => "", disabled: true},
-			{label: () => t("common.back"), onActivate: () => this.scene.start("menu")},
-		]);
+				{label: () => "", disabled: true},
+				{label: () => t("common.back"), onActivate: () => this.scene.start("menu")},
+			],
+			30,
+			() => this.scene.start("menu"),
+		);
 	}
 
 	private apply(): void {

@@ -74,6 +74,8 @@ export interface TrackData {
 	checkpoints: CheckpointData[];
 	gridSlots: GridSlot[];
 	pitBoxes: PitBox[];
+	/** Positions des pylônes de projecteurs du circuit (cycle jour/nuit). */
+	floodlights: Point[];
 	/** Rectangle de la voie des stands. */
 	pitLane: { x1: number; y1: number; x2: number; y2: number };
 	/** Segment du mur des stands. */

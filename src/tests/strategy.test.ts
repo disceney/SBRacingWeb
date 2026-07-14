@@ -2,6 +2,8 @@ import {describe, expect, it} from "vitest";
 import {STOCK_CAR} from "../data/cars";
 import {DRIVERS} from "../data/drivers";
 import {CLASSIC_OVAL} from "../data/tracks/classicOval";
+import {FuelSystem} from "../race/FuelSystem";
+import {TireSystem} from "../race/TireSystem";
 import {Track} from "../track/Track";
 import {AIController} from "../vehicles/AIController";
 import {Vehicle} from "../vehicles/Vehicle";
@@ -49,5 +51,39 @@ describe("stratégie de stands de l’IA (§12.5)", () => {
 		aiDaring.onLapCompleted(20, 8, 0);
 		expect(aiCautious.wantPit).toBe(true);
 		expect(aiDaring.wantPit).toBe(false);
+	});
+
+	it("à réserve de carburant égale, une course plus longue retarde le déclenchement de l’arrêt", () => {
+		const fuelShort = new FuelSystem("normal", 20);
+		const fuelLong = new FuelSystem("normal", 100);
+		const aiShort = makeAI(20);
+		const aiLong = makeAI(20);
+		aiShort.onLapCompleted(5, fuelShort.estimateFuelPerLap(), 0);
+		aiLong.onLapCompleted(5, fuelLong.estimateFuelPerLap(), 0);
+		expect(aiShort.wantPit).toBe(true);
+		expect(aiLong.wantPit).toBe(false);
+	});
+
+	it("à réserve de pneus égale, une course plus longue retarde aussi le déclenchement lié à l’usure", () => {
+		const tiresShort = new TireSystem("normal", 20);
+		const tiresLong = new TireSystem("normal", 100);
+		const aiShort = makeAI(100);
+		const aiLong = makeAI(100);
+		aiShort.vehicle.tires = 15;
+		aiLong.vehicle.tires = 15;
+		aiShort.onLapCompleted(5, 0, tiresShort.estimateTiresPerLap());
+		aiLong.onLapCompleted(5, 0, tiresLong.estimateTiresPerLap());
+		expect(aiShort.wantPit).toBe(true);
+		expect(aiLong.wantPit).toBe(false);
+	});
+
+	it("le nombre d’arrêts carburant nécessaires augmente avec la longueur de la course", () => {
+		function stopsNeeded(raceLaps: number): number {
+			const fuel = new FuelSystem("normal", raceLaps);
+			const autonomyLaps = 100 / fuel.estimateFuelPerLap();
+			return Math.max(0, Math.ceil(raceLaps / autonomyLaps) - 1);
+		}
+		expect(stopsNeeded(20)).toBe(1);
+		expect(stopsNeeded(100)).toBeGreaterThanOrEqual(2);
 	});
 });

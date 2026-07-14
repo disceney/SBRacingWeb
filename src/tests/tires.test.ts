@@ -18,7 +18,7 @@ function makeVehicle(isPlayer = false): Vehicle {
 
 describe("usure des pneus", () => {
 	it("désactivée : train intact et adhérence pleine", () => {
-		const tires = new TireSystem("off");
+		const tires = new TireSystem("off", 20);
 		const v = makeVehicle();
 		v.vLong = 250;
 		for (let i = 0; i < 600; i++) tires.step(v, DT);
@@ -28,7 +28,7 @@ describe("usure des pneus", () => {
 	});
 
 	it("l’usure progresse avec la vitesse et s’accélère en dérapage", () => {
-		const tires = new TireSystem("normal", () => 1);
+		const tires = new TireSystem("normal", 20, () => 1);
 		const clean = makeVehicle();
 		const sliding = makeVehicle();
 		clean.vLong = 250;
@@ -43,7 +43,7 @@ describe("usure des pneus", () => {
 	});
 
 	it("l’adhérence décroît jusqu’à −30 % à pneus morts", () => {
-		const tires = new TireSystem("normal", () => 1);
+		const tires = new TireSystem("normal", 20, () => 1);
 		const v = makeVehicle();
 		v.tires = 50;
 		tires.step(v, DT);
@@ -53,8 +53,8 @@ describe("usure des pneus", () => {
 		expect(v.tireGrip).toBeCloseTo(0.7, 2);
 	});
 
-	it("équilibrage : un train dure entre 10 et 20 tours en usure normale", () => {
-		const tires = new TireSystem("normal");
+	it("équilibrage : sur une course de 20 tours, un train dure entre 10 et 20 tours", () => {
+		const tires = new TireSystem("normal", 20);
 		const lapsPerSet = 100 / tires.estimateTiresPerLap();
 		expect(lapsPerSet).toBeGreaterThan(10);
 		expect(lapsPerSet).toBeLessThan(20);
@@ -62,7 +62,7 @@ describe("usure des pneus", () => {
 
 	it("crevaison sous 10 % d’usure : vitesse et adhérence effondrées", () => {
 		// rng à 0 : la crevaison se produit dès que le risque est non nul.
-		const tires = new TireSystem("normal", () => 0);
+		const tires = new TireSystem("normal", 20, () => 0);
 		const v = makeVehicle();
 		v.tires = 5;
 		v.vLong = 200;
@@ -73,7 +73,7 @@ describe("usure des pneus", () => {
 	});
 
 	it("aucune crevaison au-dessus du seuil, même avec un tirage défavorable", () => {
-		const tires = new TireSystem("normal", () => 0);
+		const tires = new TireSystem("normal", 20, () => 0);
 		const v = makeVehicle();
 		v.tires = 50;
 		v.vLong = 200;
@@ -82,7 +82,7 @@ describe("usure des pneus", () => {
 	});
 
 	it("le changement remet un train neuf et répare la crevaison", () => {
-		const tires = new TireSystem("normal");
+		const tires = new TireSystem("normal", 20);
 		const v = makeVehicle();
 		v.tires = 3;
 		v.flatTire = true;
@@ -90,6 +90,34 @@ describe("usure des pneus", () => {
 		expect(v.tires).toBe(100);
 		expect(v.flatTire).toBe(false);
 		expect(v.tireGrip).toBe(1);
+	});
+
+	it("autonomie proportionnelle : sur 20 tours l’autonomie normale ≈ 11,66 tours", () => {
+		const tires = new TireSystem("normal", 20);
+		const lapsPerSet = 100 / tires.estimateTiresPerLap();
+		expect(lapsPerSet).toBeCloseTo(11.66, 1);
+	});
+
+	it("autonomie proportionnelle : sur 100 tours l’estimation par tour avoisine 100/49,5", () => {
+		const tires = new TireSystem("normal", 100);
+		expect(tires.estimateTiresPerLap()).toBeCloseTo(100 / 49.5, 2);
+	});
+
+	it("les niveaux reduced et high restent des multiplicateurs de l’estimation", () => {
+		const normal = new TireSystem("normal", 20);
+		const reduced = new TireSystem("reduced", 20);
+		const high = new TireSystem("high", 20);
+		expect(reduced.estimateTiresPerLap()).toBeCloseTo(normal.estimateTiresPerLap() * 0.6, 5);
+		expect(high.estimateTiresPerLap()).toBeCloseTo(normal.estimateTiresPerLap() * 1.6, 5);
+	});
+
+	it("l’autonomie pneus reste dans la bande 44-60 % de la course, quel que soit son nombre de tours", () => {
+		for (const raceLaps of [20, 50, 100, 200]) {
+			const tires = new TireSystem("normal", raceLaps);
+			const fraction = 100 / (tires.estimateTiresPerLap() * raceLaps);
+			expect(fraction).toBeGreaterThanOrEqual(0.44);
+			expect(fraction).toBeLessThanOrEqual(0.6);
+		}
 	});
 });
 
@@ -108,7 +136,7 @@ describe("changement de pneus aux stands", () => {
 	}
 
 	it("pneus neufs après 4 s d’arrêt, en parallèle du plein", () => {
-		const pit = new PitSystem(track, new FuelSystem("normal"), new TireSystem("normal"), new DamageSystem("off"));
+		const pit = new PitSystem(track, new FuelSystem("normal", 20), new TireSystem("normal", 20), new DamageSystem("off"));
 		const v = makeVehicle(false);
 		v.fuel = 60;
 		v.tires = 30;
@@ -124,7 +152,7 @@ describe("changement de pneus aux stands", () => {
 	});
 
 	it("départ anticipé du joueur : les pneus restent usés", () => {
-		const pit = new PitSystem(track, new FuelSystem("normal"), new TireSystem("normal"), new DamageSystem("off"));
+		const pit = new PitSystem(track, new FuelSystem("normal", 20), new TireSystem("normal", 20), new DamageSystem("off"));
 		const v = makeVehicle(true);
 		v.tires = 40;
 		stopVehicle(pit, v);
@@ -137,7 +165,7 @@ describe("changement de pneus aux stands", () => {
 	});
 
 	it("une crevaison est réparée par l’arrêt complet", () => {
-		const pit = new PitSystem(track, new FuelSystem("normal"), new TireSystem("normal"), new DamageSystem("off"));
+		const pit = new PitSystem(track, new FuelSystem("normal", 20), new TireSystem("normal", 20), new DamageSystem("off"));
 		const v = makeVehicle(false);
 		v.tires = 2;
 		v.flatTire = true;

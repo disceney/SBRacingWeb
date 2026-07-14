@@ -3,14 +3,23 @@ import {FIXED_STEP, GAME_HEIGHT, GAME_WIDTH, MAX_CATCHUP_STEPS} from "../app/con
 import {audio} from "../audio/AudioManager";
 import {CLASSIC_OVAL} from "../data/tracks/classicOval";
 import {t} from "../data/translations";
-import {ensureCarTexture, ensureParticleTextures, ensurePitCrewTextures, ensureShadowTexture,} from "../gfx/carTexture";
+import {
+	CAR_SPRITE_WIDTH,
+	ensureCarTexture,
+	ensureParticleTextures,
+	ensurePitCrewTextures,
+	ensureShadowTexture,
+} from "../gfx/carTexture";
+import {ensureLightTextures} from "../gfx/lightTexture";
 import {ensureTrackTexture} from "../gfx/trackTexture";
 import {loadSettings, saveSettings} from "../persistence/storage";
+import {DayNightSystem} from "../race/DayNightSystem";
 import {RaceController, type RaceEvent} from "../race/RaceController";
 import {DEFAULT_RACE_SETTINGS, type RaceSettings} from "../race/raceTypes";
 import {Track} from "../track/Track";
 import {Surface} from "../track/trackTypes";
 import {HUD} from "../ui/HUD";
+import {TouchControls} from "../ui/TouchControls";
 import {createRaceField} from "../vehicles/VehicleFactory";
 import {PlayerController} from "../vehicles/PlayerController";
 import {resetToTrack} from "../vehicles/VehiclePhysics";
@@ -18,10 +27,35 @@ import type {Vehicle} from "../vehicles/Vehicle";
 
 /** Quantification des orientations de sprites : 32 pas (§16.2). */
 const ORIENTATION_STEP = (Math.PI * 2) / 32;
+/** Index du bouton Start/Menu, utilisé comme pause manette (§7.2). */
+const GAMEPAD_START_BUTTON = 9;
+/** Profondeur du voile d'obscurité (au-dessus du monde, sous le HUD). */
+const DARKNESS_DEPTH = 90;
+/** Profondeur des halos lumineux, au-dessus du voile pour le percer. */
+const LIGHTS_DEPTH = 91;
+/** Alpha maximal du voile d'obscurité en pleine nuit (cohérent avec la pause). */
+const MAX_DARKNESS_ALPHA = 0.55;
+
+/**
+ * Vue minimale et locale de l'API de vibration manette (expérimentale,
+ * absente sur certains navigateurs malgré le typage DOM standard) : tout
+ * y est optionnel pour un chaînage sûr, sans erreur si l'API manque.
+ */
+interface HapticGamepad {
+	vibrationActuator?: {
+		playEffect?: (type: string, params: Record<string, number>) => Promise<unknown>;
+	};
+}
 
 interface CarSprites {
 	body: Phaser.GameObjects.Image;
 	shadow: Phaser.GameObjects.Image;
+}
+
+/** Phare avant et feu de freinage arrière d'une voiture (cycle jour/nuit). */
+interface CarLights {
+	beam: Phaser.GameObjects.Image;
+	brake: Phaser.GameObjects.Image;
 }
 
 /**
@@ -35,7 +69,13 @@ export class RaceScene extends Phaser.Scene {
 	private controller!: RaceController;
 	private playerInput!: PlayerController;
 	private hud!: HUD;
+	private touchControls: TouchControls | null = null;
 	private sprites = new Map<Vehicle, CarSprites>();
+	/** Cycle jour/nuit : ambiance calculée à partir de la progression du meneur (additif). */
+	private readonly dayNight = new DayNightSystem();
+	private darkness: Phaser.GameObjects.Rectangle | null = null;
+	private floodlightGlows: Phaser.GameObjects.Image[] = [];
+	private carLights = new Map<Vehicle, CarLights>();
 
 	private accumulator = 0;
 	private paused = false;
@@ -44,6 +84,7 @@ export class RaceScene extends Phaser.Scene {
 	private centerTextTimer = 0;
 	private collisionCooldown = 0;
 	private lowFuelAlerted = false;
+	private gamepadStartWasDown = false;
 	private camX = 0;
 	private camY = 0;
 
@@ -66,7 +107,12 @@ export class RaceScene extends Phaser.Scene {
 		this.centerTextTimer = 0;
 		this.collisionCooldown = 0;
 		this.lowFuelAlerted = false;
+		this.gamepadStartWasDown = false;
+		this.touchControls = null;
 		this.pitCrews = new Map();
+		this.darkness = null;
+		this.floodlightGlows = [];
+		this.carLights = new Map();
 	}
 
 	create(): void {
@@ -75,18 +121,59 @@ export class RaceScene extends Phaser.Scene {
 		ensureShadowTexture(this);
 		ensureParticleTextures(this);
 		ensurePitCrewTextures(this);
+		ensureLightTextures(this);
 		this.add.image(0, 0, "track").setOrigin(0, 0);
 
 		const field = createRaceField(this.settings, this.track);
 		this.controller = new RaceController(this.track, this.settings, field);
 		this.controller.onEvent = (event) => this.handleRaceEvent(event);
 
-		// — Sprites : ombre puis carrosserie pour chaque voiture.
+		// — Sprites : ombre, carrosserie, phare et feu de freinage pour chaque voiture.
 		for (const vehicle of this.controller.vehicles) {
 			const key = ensureCarTexture(this, vehicle.colorIndex, vehicle.raceNumber);
 			const shadow = this.add.image(vehicle.x + 2, vehicle.y + 3, "car-shadow").setDepth(4);
 			const body = this.add.image(vehicle.x, vehicle.y, key).setDepth(5);
 			this.sprites.set(vehicle, {body, shadow});
+
+			// Phare (origine à la source, s'étend vers l'avant) et feu de freinage,
+			// invisibles de jour (alpha 0), révélés par updateDayNight à la tombée de la nuit.
+			const beam = this.add
+				.image(vehicle.x, vehicle.y, "light-beam")
+				.setOrigin(0, 0.5)
+				.setBlendMode(Phaser.BlendModes.ADD)
+				.setDepth(LIGHTS_DEPTH)
+				.setAlpha(0);
+			const brake = this.add
+				.image(vehicle.x, vehicle.y, "light-brake")
+				.setBlendMode(Phaser.BlendModes.ADD)
+				.setDepth(LIGHTS_DEPTH)
+				.setAlpha(0);
+			this.carLights.set(vehicle, {beam, brake});
+		}
+
+		// — Voile d'obscurité plein écran (cycle jour/nuit), sous le HUD et les overlays.
+		this.darkness = this.add
+			.rectangle(0, 0, GAME_WIDTH, GAME_HEIGHT, 0x000000, 0)
+			.setOrigin(0)
+			.setScrollFactor(0)
+			.setDepth(DARKNESS_DEPTH);
+
+		// — Halos des projecteurs du circuit : glow sur le pylône + flaque au sol,
+		// invisibles de jour, révélés par updateDayNight.
+		for (const light of this.track.data.floodlights) {
+			const glow = this.add
+				.image(light.x, light.y, "light-glow")
+				.setBlendMode(Phaser.BlendModes.ADD)
+				.setDepth(LIGHTS_DEPTH)
+				.setScale(2.8)
+				.setAlpha(0);
+			const pool = this.add
+				.image(light.x, light.y + 26, "light-glow")
+				.setBlendMode(Phaser.BlendModes.ADD)
+				.setDepth(LIGHTS_DEPTH)
+				.setScale(3.6, 1.6)
+				.setAlpha(0);
+			this.floodlightGlows.push(glow, pool);
 		}
 
 		// — Particules : fumée de dérapage et poussière sur l'herbe (§16.4).
@@ -140,6 +227,14 @@ export class RaceScene extends Phaser.Scene {
 		this.playerInput = new PlayerController(this);
 		this.hud = new HUD(this, this.controller);
 
+		// — Boutons virtuels : uniquement sur appareil tactile (§7.3).
+		if (TouchControls.isTouchDevice(this)) {
+			const touch = new TouchControls(this);
+			touch.onPause = () => this.togglePause();
+			touch.onFullscreen = () => this.scale.toggleFullscreen();
+			this.touchControls = touch;
+		}
+
 		// — Texte central (compte à rebours, messages).
 		this.centerText = this.add
 			.text(GAME_WIDTH / 2, GAME_HEIGHT / 2 - 80, "", {
@@ -188,7 +283,11 @@ export class RaceScene extends Phaser.Scene {
 	}
 
 	override update(_time: number, deltaMs: number): void {
+		// Pause manette (Start, front montant) : agit aussi bien pour pausser que reprendre.
+		this.updateGamepadPause();
+
 		if (!this.paused) {
+			this.playerInput.setTouchSource(this.touchControls?.state ?? null);
 			// — Boucle à pas fixe avec rattrapage plafonné (§18.2).
 			this.accumulator += Math.min(deltaMs / 1000, 0.25);
 			let steps = 0;
@@ -217,8 +316,29 @@ export class RaceScene extends Phaser.Scene {
 
 		// Le rendu reste actif même en pause : l'écran reflète l'état réel.
 		this.renderVehicles();
+		this.updateDayNight();
 		this.updateCamera(deltaMs / 1000);
 		this.hud.update(_time);
+	}
+
+	/** Bouton Start/Menu de la première manette : bascule la pause sur front montant. */
+	private updateGamepadPause(): void {
+		const down = this.playerInput.gamepad?.isButtonDown(GAMEPAD_START_BUTTON) ?? false;
+		if (down && !this.gamepadStartWasDown) this.togglePause();
+		this.gamepadStartWasDown = down;
+	}
+
+	/** Vibration proportionnelle à la vitesse sur choc (§7.2) ; API non standard, sans risque. */
+	private vibrateCollision(speed: number): void {
+		const pad = this.playerInput.gamepad;
+		if (!pad) return;
+		const rawPad = navigator.getGamepads()[pad.index] as unknown as HapticGamepad | null | undefined;
+		const magnitude = Math.min(1, speed / 200);
+		void rawPad?.vibrationActuator?.playEffect?.("dual-rumble", {
+			duration: 200,
+			strongMagnitude: magnitude,
+			weakMagnitude: magnitude,
+		});
 	}
 
 	/** Positionne sprites et ombres, orientation quantifiée sur 32 pas. */
@@ -256,6 +376,41 @@ export class RaceScene extends Phaser.Scene {
 		}
 	}
 
+	/**
+	 * Applique le cycle jour/nuit : obscurité proportionnelle à la progression
+	 * du meneur, projecteurs du circuit, phares et feux de freinage des
+	 * voitures en course. Aucune allocation : tous les objets sont réutilisés.
+	 */
+	private updateDayNight(): void {
+		const leader = this.controller.ranking[0];
+		const fraction = leader ? leader.lap / this.settings.laps : 0;
+		const state = this.dayNight.computeFraction(fraction);
+
+		this.darkness?.setAlpha(state.darkness * MAX_DARKNESS_ALPHA);
+
+		const lightAlpha = state.lightsOn ? state.darkness : 0;
+		for (const glow of this.floodlightGlows) glow.setAlpha(lightAlpha);
+
+		const halfLength = CAR_SPRITE_WIDTH / 2;
+		for (const [vehicle, lights] of this.carLights) {
+			if (vehicle.raceState === "wrecked") {
+				lights.beam.setAlpha(0);
+				lights.brake.setAlpha(0);
+				continue;
+			}
+			const rotation = Math.round(vehicle.heading / ORIENTATION_STEP) * ORIENTATION_STEP;
+			const cos = Math.cos(rotation);
+			const sin = Math.sin(rotation);
+			lights.beam
+				.setPosition(vehicle.x + cos * halfLength, vehicle.y + sin * halfLength)
+				.setRotation(rotation)
+				.setAlpha(lightAlpha);
+			lights.brake
+				.setPosition(vehicle.x - cos * halfLength, vehicle.y - sin * halfLength)
+				.setAlpha(vehicle.controls.brake > 0 ? lightAlpha : 0);
+		}
+	}
+
 	/** Caméra lissée avec légère anticipation dans la direction du joueur. */
 	private updateCamera(dt: number): void {
 		const player = this.controller.player;
@@ -285,9 +440,11 @@ export class RaceScene extends Phaser.Scene {
 		if (this.collisionCooldown === 0) {
 			if (player.hitWall) {
 				audio.playCollision(Math.min(1, player.speed / 200));
+				this.vibrateCollision(player.speed);
 				this.collisionCooldown = 0.25;
 			} else if (player.hitCar) {
 				audio.playCollision(Math.min(0.6, player.speed / 260));
+				this.vibrateCollision(player.speed);
 				this.collisionCooldown = 0.25;
 			}
 		}

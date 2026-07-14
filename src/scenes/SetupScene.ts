@@ -7,7 +7,7 @@ import type {FuelLevel, RaceSettings} from "../race/raceTypes";
 import {loadSettings, saveSettings} from "../persistence/storage";
 import {MenuList} from "../ui/MenuList";
 
-const LAP_PRESETS = [5, 10, 20, 30, 50];
+const LAP_PRESETS = [20, 30, 50, 100];
 const FUEL_LEVELS: FuelLevel[] = ["off", "reduced", "normal", "high"];
 
 /**
@@ -34,80 +34,87 @@ export class SetupScene extends Phaser.Scene {
 			})
 			.setOrigin(0.5);
 
-		new MenuList(this, 240, 130, [
-			{
+		new MenuList(
+			this,
+			240,
+			130,
+			[
+				{
 				label: () => `${t("setup.carCount")} : ${this.settings.carCount}`,
 				onChange: (dir) => {
 					// Quinze concurrents au maximum : un stand attitré chacun.
 					this.settings.carCount = clamp(this.settings.carCount + dir, 2, 15);
 				},
-			},
-			{
-				label: () => `${t("setup.laps")} : ${this.settings.laps}`,
-				onChange: (dir, shift) => {
-					this.settings.laps = shift
-						? clamp(this.settings.laps + dir, 1, 200)
-						: cyclePreset(this.settings.laps, dir);
 				},
-			},
-			{
-				label: () => `${t("setup.fuel")} : ${t(`setup.fuel.${this.settings.fuelLevel}`)}`,
-				onChange: (dir) => {
-					const i = FUEL_LEVELS.indexOf(this.settings.fuelLevel);
-					this.settings.fuelLevel =
-						FUEL_LEVELS[(i + dir + FUEL_LEVELS.length) % FUEL_LEVELS.length]!;
+				{
+					label: () => `${t("setup.laps")} : ${this.settings.laps}`,
+					onChange: (dir, shift) => {
+						this.settings.laps = shift
+							? clamp(this.settings.laps + dir, 20, 200)
+							: cyclePreset(this.settings.laps, dir);
+					},
 				},
-			},
-			{
-				label: () => `${t("setup.tires")} : ${t(`setup.fuel.${this.settings.tireLevel}`)}`,
-				onChange: (dir) => {
-					const i = FUEL_LEVELS.indexOf(this.settings.tireLevel);
-					this.settings.tireLevel =
-						FUEL_LEVELS[(i + dir + FUEL_LEVELS.length) % FUEL_LEVELS.length]!;
+				{
+					label: () => `${t("setup.fuel")} : ${t(`setup.fuel.${this.settings.fuelLevel}`)}`,
+					onChange: (dir) => {
+						const i = FUEL_LEVELS.indexOf(this.settings.fuelLevel);
+						this.settings.fuelLevel =
+							FUEL_LEVELS[(i + dir + FUEL_LEVELS.length) % FUEL_LEVELS.length]!;
+					},
 				},
-			},
-			{
-				label: () => `${t("setup.damage")} : ${t(`setup.damage.${this.settings.damageLevel}`)}`,
-				onChange: (dir) => {
-					const i = FUEL_LEVELS.indexOf(this.settings.damageLevel);
-					this.settings.damageLevel =
-						FUEL_LEVELS[(i + dir + FUEL_LEVELS.length) % FUEL_LEVELS.length]!;
+				{
+					label: () => `${t("setup.tires")} : ${t(`setup.fuel.${this.settings.tireLevel}`)}`,
+					onChange: (dir) => {
+						const i = FUEL_LEVELS.indexOf(this.settings.tireLevel);
+						this.settings.tireLevel =
+							FUEL_LEVELS[(i + dir + FUEL_LEVELS.length) % FUEL_LEVELS.length]!;
+					},
 				},
-			},
-			{
-				label: () =>
-					`${t("setup.collisions")} : ${this.settings.collisions ? t("common.on") : t("common.off")}`,
-				onChange: () => {
-					this.settings.collisions = !this.settings.collisions;
+				{
+					label: () => `${t("setup.damage")} : ${t(`setup.damage.${this.settings.damageLevel}`)}`,
+					onChange: (dir) => {
+						const i = FUEL_LEVELS.indexOf(this.settings.damageLevel);
+						this.settings.damageLevel =
+							FUEL_LEVELS[(i + dir + FUEL_LEVELS.length) % FUEL_LEVELS.length]!;
+					},
 				},
-			},
-			{
-				label: () =>
-					`${t("setup.autopilot")} : ${this.settings.autopilot ? t("common.on2") : t("common.off2")}`,
-				onChange: () => {
-					this.settings.autopilot = !this.settings.autopilot;
+				{
+					label: () =>
+						`${t("setup.collisions")} : ${this.settings.collisions ? t("common.on") : t("common.off")}`,
+					onChange: () => {
+						this.settings.collisions = !this.settings.collisions;
+					},
 				},
-			},
-			{
-				label: () =>
-					`${t("setup.color")} : ${CAR_COLORS[this.settings.playerColorIndex]!.name}`,
-				onChange: (dir) => {
-					this.settings.playerColorIndex =
-						(this.settings.playerColorIndex + dir + CAR_COLORS.length) % CAR_COLORS.length;
-					this.updatePreview();
+				{
+					label: () =>
+						`${t("setup.autopilot")} : ${this.settings.autopilot ? t("common.on2") : t("common.off2")}`,
+					onChange: () => {
+						this.settings.autopilot = !this.settings.autopilot;
+					},
 				},
-			},
-			{
-				label: () => `${t("setup.number")} : ${this.settings.playerNumber}`,
-				onChange: (dir) => {
-					this.settings.playerNumber = clamp(this.settings.playerNumber + dir, 1, 99);
-					this.updatePreview();
+				{
+					label: () =>
+						`${t("setup.color")} : ${CAR_COLORS[this.settings.playerColorIndex]!.name}`,
+					onChange: (dir) => {
+						this.settings.playerColorIndex =
+							(this.settings.playerColorIndex + dir + CAR_COLORS.length) % CAR_COLORS.length;
+						this.updatePreview();
+					},
 				},
-			},
-			{label: () => "", disabled: true},
-			{label: () => t("setup.start"), onActivate: () => this.startRace()},
-			{label: () => t("common.back"), onActivate: () => this.scene.start("menu")},
-		]);
+				{
+					label: () => `${t("setup.number")} : ${this.settings.playerNumber}`,
+					onChange: (dir) => {
+						this.settings.playerNumber = clamp(this.settings.playerNumber + dir, 1, 99);
+						this.updatePreview();
+					},
+				},
+				{label: () => "", disabled: true},
+				{label: () => t("setup.start"), onActivate: () => this.startRace()},
+				{label: () => t("common.back"), onActivate: () => this.scene.start("menu")},
+			],
+			30,
+			() => this.scene.start("menu"),
+		);
 
 		// Aperçu de la livrée, agrandi.
 		this.preview = this.add.image(700, 220, "").setScale(3);

@@ -5,7 +5,7 @@ export type FuelLevel = "off" | "reduced" | "normal" | "high";
 export interface RaceSettings {
 	/** Nombre total de voitures, joueur compris (2 à 20). */
 	carCount: number;
-	/** Nombre de tours (5, 10, 20, 30, 50 ou personnalisé). */
+	/** Nombre de tours (20 à 200 ; préréglages 20/30/50/100). */
 	laps: number;
 	fuelLevel: FuelLevel;
 	/** Niveau d'usure des pneus (mêmes paliers que la consommation). */

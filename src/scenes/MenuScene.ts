@@ -32,6 +32,7 @@ export class MenuScene extends Phaser.Scene {
 			{label: () => `${t("menu.tutorial")} (${t("common.comingSoon")})`, disabled: true},
 			{label: () => `${t("menu.records")} (${t("common.comingSoon")})`, disabled: true},
 			{label: () => t("menu.options"), onActivate: () => this.scene.start("options")},
+			{label: () => t("menu.controls"), onActivate: () => this.scene.start("controls")},
 			{label: () => t("menu.credits"), onActivate: () => this.toggleCredits()},
 		]);
 

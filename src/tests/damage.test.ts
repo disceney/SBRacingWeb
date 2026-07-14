@@ -75,8 +75,8 @@ describe("dégâts mécaniques", () => {
 	it("réparation aux stands : continue, départ anticipé partiel", () => {
 		const pit = new PitSystem(
 			track,
-			new FuelSystem("off"),
-			new TireSystem("off"),
+			new FuelSystem("off", 20),
+			new TireSystem("off", 20),
 			new DamageSystem("normal"),
 		);
 		const v = makeVehicle(true);
@@ -103,8 +103,8 @@ describe("dégâts mécaniques", () => {
 	it("l’IA reste au stand jusqu’à une mécanique saine", () => {
 		const pit = new PitSystem(
 			track,
-			new FuelSystem("off"),
-			new TireSystem("off"),
+			new FuelSystem("off", 20),
+			new TireSystem("off", 20),
 			new DamageSystem("normal"),
 		);
 		const v = makeVehicle(false);

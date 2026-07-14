@@ -11,6 +11,14 @@ const REVERSE_SPEED_CAP = mphToUnits(-25);
 const STEER_AUTHORITY_SPEED = 30;
 /** Restitution des rebonds contre les murs. */
 const WALL_RESTITUTION = 0.35;
+/** Fraction de maxSpeed au-delà de laquelle l'excès d'adhérence alimente la toupie. */
+const SPIN_RISK_SPEED_FACTOR = 0.55;
+/** Fraction de maxSpeed en dessous de laquelle le pilote reprend le contrôle après une toupie. */
+const SPIN_RECOVERY_SPEED_FACTOR = 0.35;
+/** Seuil de l'accumulateur de surchauffe déclenchant la toupie (~0,5-0,8 s de sur-régime franc). */
+const SPIN_HEAT_TRIGGER = 0.55;
+/** Vitesse de rotation imposée pendant une toupie (rad/s). */
+const SPIN_YAW_RATE = 3.6;
 
 /**
  * Physique arcade déterministe : intégration à pas fixe de la vitesse
@@ -38,7 +46,8 @@ export function stepVehiclePhysics(vehicle: Vehicle, track: Track, dt: number): 
 	speedCap = Math.min(speedCap, spec.maxSpeed * (0.55 + 0.45 * vehicle.healthFactor));
 
 	// — Accélération moteur (courbe en 1 − v/vMax) modulée par le carburant.
-	if (c.throttle > 0 && vehicle.vLong < speedCap) {
+	// Inopérante pendant une toupie : le pilote n'a plus la main sur l'auto.
+	if (c.throttle > 0 && vehicle.vLong < speedCap && !vehicle.spinning) {
 		const curve = Math.max(0, 1 - vehicle.vLong / spec.maxSpeed);
 		const damageFactor = 0.5 + 0.5 * vehicle.healthFactor;
 		vehicle.vLong += spec.acceleration * curve * c.throttle * vehicle.powerFactor * damageFactor * dt;
@@ -75,8 +84,17 @@ export function stepVehiclePhysics(vehicle: Vehicle, track: Track, dt: number): 
 	const wantedYaw = c.steer * yawRateMax * Math.sign(vehicle.vLong || 1);
 	const gripLimit = spec.lateralGrip * props.grip * vehicle.tireGrip;
 	const requiredLat = Math.abs(vehicle.vLong * wantedYaw);
+	const overGrip = requiredLat > gripLimit && Math.abs(vehicle.vLong) > 1;
+	const highSpeed = vehicle.vLong > spec.maxSpeed * SPIN_RISK_SPEED_FACTOR;
+
 	let yaw = wantedYaw;
-	if (requiredLat > gripLimit && Math.abs(vehicle.vLong) > 1) {
+	if (vehicle.spinning) {
+		// — Toupie en cours : direction et accélérateur n'ont plus prise, la
+		// rotation imposée poursuit le tête-à-queue (sens fixé par spinHeat).
+		yaw = Math.sign(vehicle.spinHeat || 1) * SPIN_YAW_RATE;
+		vehicle.vLong = Math.max(0, vehicle.vLong - spec.braking * 0.35 * dt);
+		vehicle.sliding = true;
+	} else if (overGrip) {
 		// Sous-virage : rotation plafonnée, l'excédent alimente la glisse et frotte.
 		yaw = (Math.sign(wantedYaw) * gripLimit) / Math.abs(vehicle.vLong);
 		const excess = requiredLat - gripLimit;
@@ -84,6 +102,27 @@ export function stepVehiclePhysics(vehicle: Vehicle, track: Track, dt: number): 
 		vehicle.vLong = Math.max(0, vehicle.vLong - excess * 0.2 * dt);
 		vehicle.sliding = true;
 	}
+
+	if (!vehicle.spinning) {
+		// Surchauffe d'adhérence : proportionnelle à l'excès relatif, seulement à
+		// vitesse élevée et soutenue ; une glisse déjà installée (ex. injectée
+		// par une collision) l'alimente aussi. Retombe nettement sinon.
+		if (overGrip && highSpeed) {
+			const excessRatio = requiredLat / gripLimit - 1;
+			vehicle.spinHeat += Math.sign(wantedYaw) * excessRatio * dt;
+		} else if (highSpeed && Math.abs(vehicle.vLat) > 8) {
+			vehicle.spinHeat += Math.sign(vehicle.vLat) * 0.6 * dt;
+		} else {
+			vehicle.spinHeat -= Math.sign(vehicle.spinHeat) * 1.4 * dt;
+			if (Math.abs(vehicle.spinHeat) < 0.02) vehicle.spinHeat = 0;
+		}
+		if (Math.abs(vehicle.spinHeat) > SPIN_HEAT_TRIGGER) vehicle.spinning = true;
+	} else if (Math.abs(vehicle.vLong) < spec.maxSpeed * SPIN_RECOVERY_SPEED_FACTOR) {
+		// Sortie de toupie : le contrôle revient une fois suffisamment ralenti.
+		vehicle.spinning = false;
+		vehicle.spinHeat = 0;
+	}
+
 	vehicle.heading += yaw * dt;
 
 	// — Légère dérive à haute vitesse en virage, même sous la limite d'adhérence.

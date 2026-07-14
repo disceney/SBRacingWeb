@@ -105,6 +105,7 @@ export class ResultsScene extends Phaser.Scene {
 				{label: () => t("results.menu"), onActivate: () => this.scene.start("menu")},
 			],
 			24,
+			() => this.scene.start("menu"),
 		);
 	}
 }

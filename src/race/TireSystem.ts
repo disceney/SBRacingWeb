@@ -10,8 +10,13 @@ const LEVEL_MULTIPLIERS: Record<FuelLevel, number> = {
 	high: 1.6,
 };
 
-/** Usure de base (%/s) à pleine vitesse : un train dure ≈ 15 tours en normal. */
+/** Usure de base (%/s) à pleine vitesse, calibrée pour ≈ 6,7 %/tour à
+ * ≈ 21 s/tour (référence de mise à l'échelle). */
 const BASE_WEAR_RATE = 0.32;
+/** Usure par tour à laquelle BASE_WEAR_RATE est calibré. */
+const REFERENCE_PER_LAP = 6.7;
+/** Fenêtre pneus légèrement plus large que la fenêtre carburant. */
+const TIRE_WINDOW_FACTOR = 1.1;
 /** Perte d'adhérence maximale à pneus morts. */
 const MAX_GRIP_LOSS = 0.3;
 /** Sous ce niveau d'usure, le risque de crevaison apparaît. */
@@ -29,19 +34,42 @@ export interface TireEvents {
 	punctured?: boolean;
 }
 
+function clamp(value: number, min: number, max: number): number {
+	return Math.min(max, Math.max(min, value));
+}
+
+/**
+ * Part de la course couverte par un train neuf en usure normale : décroît
+ * légèrement avec le nombre de tours (0,55 → 0,40), comme pour le
+ * carburant, afin de garder une autonomie proportionnelle à la longueur de
+ * la course.
+ */
+function autonomyFraction(raceLaps: number): number {
+	return clamp(0.55 - raceLaps / 1000, 0.4, 0.55);
+}
+
 /**
  * Usure des pneus : progresse avec la distance, accélérée par les dérapages
  * et les passages hors piste ; l'adhérence décroît jusqu'à −30 %, et sous
  * 10 % d'usure un risque de crevaison croissant immobilise presque la
- * voiture jusqu'au changement aux stands.
+ * voiture jusqu'au changement aux stands. La vitesse d'usure est calibrée
+ * pour que l'autonomie d'un train reste proportionnelle au nombre de tours
+ * de la course.
  */
 export class TireSystem {
 	private readonly multiplier: number;
 	private readonly rng: () => number;
+	private readonly wearRate: number;
+	/** Usure de référence (%/tour) en niveau normal, pour l'estimation. */
+	private readonly perLap: number;
 
-	constructor(level: FuelLevel, rng: () => number = Math.random) {
+	constructor(level: FuelLevel, raceLaps: number, rng: () => number = Math.random) {
 		this.multiplier = LEVEL_MULTIPLIERS[level];
 		this.rng = rng;
+		const autonomyLaps =
+			autonomyFraction(raceLaps) * TIRE_WINDOW_FACTOR * Math.max(1, raceLaps);
+		this.perLap = 100 / autonomyLaps;
+		this.wearRate = BASE_WEAR_RATE * (this.perLap / REFERENCE_PER_LAP);
 	}
 
 	get enabled(): boolean {
@@ -63,7 +91,7 @@ export class TireSystem {
 				vehicle.surface === Surface.Grass || vehicle.surface === Surface.Kerb ? 1.8 : 1;
 			vehicle.tires = Math.max(
 				0,
-				vehicle.tires - this.multiplier * BASE_WEAR_RATE * speedRatio * slideFactor * surfaceFactor * dt,
+				vehicle.tires - this.multiplier * this.wearRate * speedRatio * slideFactor * surfaceFactor * dt,
 			);
 		}
 
@@ -90,8 +118,8 @@ export class TireSystem {
 		vehicle.tireGrip = 1;
 	}
 
-	/** Estimation de l'usure par tour au rythme de course (≈ 21 s/tour). */
+	/** Estimation de l'usure par tour au rythme de course, pour la stratégie IA. */
 	estimateTiresPerLap(): number {
-		return this.multiplier * 6.7;
+		return this.multiplier * this.perLap;
 	}
 }

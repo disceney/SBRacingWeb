@@ -34,7 +34,7 @@ function stepAt(
 
 describe("passage aux stands", () => {
 	it("joueur : entrée → emplacement → ravitaillement → sortie", () => {
-		const pit = new PitSystem(track, new FuelSystem("normal"), new TireSystem("off"), new DamageSystem("off"));
+		const pit = new PitSystem(track, new FuelSystem("normal", 20), new TireSystem("off", 20), new DamageSystem("off"));
 		const v = makeVehicle(true);
 		const box = CLASSIC_OVAL.pitBoxes[0]!;
 
@@ -65,8 +65,9 @@ describe("passage aux stands", () => {
 	});
 
 	it("IA : repart avec le plein utile pour finir la course", () => {
-		const fuel = new FuelSystem("normal");
-		const pit = new PitSystem(track, fuel, new TireSystem("off"), new DamageSystem("off"));
+		// 25 tours (fraction 0,525) : autonomie de référence 13,125 tours → ≈ 7,62 unités/tour.
+		const fuel = new FuelSystem("normal", 25);
+		const pit = new PitSystem(track, fuel, new TireSystem("off", 20), new DamageSystem("off"));
 		const v = makeVehicle(false);
 		const box = CLASSIC_OVAL.pitBoxes[0]!;
 		v.pitPhase = "toBox";
@@ -75,16 +76,16 @@ describe("passage aux stands", () => {
 
 		stepAt(pit, v, box.x - 2, box.y, false, 2);
 		expect(v.pitPhase).toBe("stopped");
-		// Besoin ≈ (2 + 1,5) tours × 8 unités = 28 : reste à l'arrêt en dessous.
+		// Besoin ≈ (2 + 1,5) tours × 7,62 unités ≈ 26,67 : reste à l'arrêt en dessous.
 		for (let i = 0; i < 40; i++) stepAt(pit, v, box.x - 2, box.y, false, 2);
 		expect(v.pitPhase).toBe("stopped");
 		for (let i = 0; i < 60; i++) stepAt(pit, v, box.x - 2, box.y, false, 2);
-		expect(v.fuel).toBeGreaterThanOrEqual(28);
+		expect(v.fuel).toBeGreaterThanOrEqual(80 / 3);
 		expect(v.pitPhase).toBe("exiting");
 	});
 
 	it("IA : engage l’entrée dans la fenêtre quand un arrêt est demandé", () => {
-		const pit = new PitSystem(track, new FuelSystem("normal"), new TireSystem("off"), new DamageSystem("off"));
+		const pit = new PitSystem(track, new FuelSystem("normal", 20), new TireSystem("off", 20), new DamageSystem("off"));
 		const v = makeVehicle(false);
 		// Sur la piste, juste avant la zone d'entrée des stands.
 		const c = track.centerlineAt(track.progressAt(CLASSIC_OVAL.pitEntryZone.x1, 1080) - 60);
@@ -93,7 +94,7 @@ describe("passage aux stands", () => {
 	});
 
 	it("accrochage automatique : approche lente → posée exactement sur la dalle", () => {
-		const pit = new PitSystem(track, new FuelSystem("normal"), new TireSystem("off"), new DamageSystem("off"));
+		const pit = new PitSystem(track, new FuelSystem("normal", 20), new TireSystem("off", 20), new DamageSystem("off"));
 		const v = makeVehicle(false);
 		const box = CLASSIC_OVAL.pitBoxes[0]!;
 		v.pitPhase = "toBox";
@@ -110,7 +111,7 @@ describe("passage aux stands", () => {
 	});
 
 	it("temps passé aux stands cumulé pendant tout le transit", () => {
-		const pit = new PitSystem(track, new FuelSystem("normal"), new TireSystem("off"), new DamageSystem("off"));
+		const pit = new PitSystem(track, new FuelSystem("normal", 20), new TireSystem("off", 20), new DamageSystem("off"));
 		const v = makeVehicle(true);
 		stepAt(pit, v, 780, 920);
 		for (let i = 0; i < 60; i++) stepAt(pit, v, 900, 920);

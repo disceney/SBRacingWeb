@@ -1,0 +1,64 @@
+# Build et déploiement sur GitHub Pages
+#
+# Déclenché à chaque push sur main : lint + tests + build doivent tous
+# réussir avant que le job de déploiement ne publie le bundle sur Pages.
+name: "Déploiement GitHub Pages"
+
+on:
+  push:
+    branches: ["main"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Un seul déploiement Pages à la fois, sans annuler un déploiement en cours.
+concurrency:
+  group: "pages"
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: "Récupération du code"
+        uses: actions/checkout@v4
+
+      - name: "Installation de Node.js"
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: "npm"
+
+      - name: "Installation des dépendances"
+        run: npm ci
+
+      - name: "Analyse statique (ESLint)"
+        run: npm run lint
+
+      - name: "Tests unitaires"
+        run: npm test
+
+      - name: "Build de production"
+        run: npm run build
+
+      - name: "Configuration de GitHub Pages"
+        uses: actions/configure-pages@v5
+
+      - name: "Publication de l'artefact Pages"
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: "dist"
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: "github-pages"
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: "Déploiement sur GitHub Pages"
+        id: deployment
+        uses: actions/deploy-pages@v4

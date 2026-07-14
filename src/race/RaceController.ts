@@ -67,8 +67,8 @@ export class RaceController {
 		this.field = field;
 		this.vehicles = field.vehicles;
 		this.player = field.player;
-		this.fuelSystem = new FuelSystem(settings.fuelLevel);
-		this.tireSystem = new TireSystem(settings.tireLevel);
+		this.fuelSystem = new FuelSystem(settings.fuelLevel, settings.laps);
+		this.tireSystem = new TireSystem(settings.tireLevel, settings.laps);
 		this.damageSystem = new DamageSystem(settings.damageLevel);
 		this.pitSystem = new PitSystem(track, this.fuelSystem, this.tireSystem, this.damageSystem);
 		this.lapTracker = new LapTracker(track);

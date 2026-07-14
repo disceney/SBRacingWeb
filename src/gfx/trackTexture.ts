@@ -187,6 +187,11 @@ export function ensureTrackTexture(scene: Phaser.Scene, track: Track): string {
 	// — Décor d'infield : camions, camping-cars, véhicules de service, arbres.
 	drawInfield(ctx, rng, d.centerX, d.centerY);
 
+	// — Pylônes de projecteurs (cycle jour/nuit), visibles de jour comme de nuit.
+	for (const floodlight of d.floodlights) {
+		drawFloodlight(ctx, floodlight.x, floodlight.y);
+	}
+
 	canvas.refresh();
 	return key;
 }
@@ -275,6 +280,18 @@ function drawPitBuilding(
 	ctx.textAlign = "center";
 	ctx.textBaseline = "middle";
 	ctx.fillText("STANDS", x + width / 2, y + 13);
+}
+
+/** Pylône de projecteur : mât gris surmonté d'une tête à quatre lampes claires. */
+function drawFloodlight(ctx: CanvasRenderingContext2D, x: number, y: number): void {
+	ctx.fillStyle = DECOR.wallShadow;
+	ctx.fillRect(x - 3, y, 6, 18);
+	ctx.fillRect(x - 10, y - 6, 20, 6);
+	const lampColors = [DECOR.kerbWhite, DECOR.lineWhite, DECOR.lineWhite, DECOR.kerbWhite];
+	for (let i = 0; i < 4; i++) {
+		ctx.fillStyle = lampColors[i]!;
+		ctx.fillRect(x - 9 + i * 5, y - 5, 3, 3);
+	}
 }
 
 /** Décor central : camions, camping-cars, véhicules de service et arbres. */

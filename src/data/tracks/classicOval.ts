@@ -1,4 +1,4 @@
-import type {GridSlot, PitBox, TrackData} from "../../track/trackTypes";
+import type {GridSlot, PitBox, Point, TrackData} from "../../track/trackTypes";
 
 // « Classic Oval » : ovale de type stock-car conforme aux dimensions du §9.2.
 // Monde 2400 × 1400, piste large de 220 unités, tour d'environ 4 490 unités.
@@ -9,6 +9,8 @@ const CENTER_Y = 700;
 const SPINE_HALF_LENGTH = 525;
 const TURN_RADIUS = 380;
 const TRACK_HALF_WIDTH = 110;
+/** Distance du mur extérieur à la ligne centrale (piste + bordure + marge). */
+const OUTER_WALL_DISTANCE = TRACK_HALF_WIDTH + 22;
 
 const START_LINE_X = 1180;
 const BOTTOM_Y = CENTER_Y + TURN_RADIUS;
@@ -41,6 +43,36 @@ function buildPitBoxes(): PitBox[] {
 	return boxes;
 }
 
+/**
+ * Pylônes de projecteurs répartis autour du circuit (cycle jour/nuit) :
+ * quatre aux coins extérieurs des virages (hors piste, près des murs),
+ * quatre le long des lignes droites côté tribunes et un au-dessus de la
+ * voie des stands.
+ */
+function buildFloodlights(): Point[] {
+	const spineX1 = CENTER_X - SPINE_HALF_LENGTH;
+	const spineX2 = CENTER_X + SPINE_HALF_LENGTH;
+	// Rayon des coins des virages : au-delà du mur extérieur, avec une marge.
+	const cornerRadius = TURN_RADIUS + OUTER_WALL_DISTANCE + 40;
+	const diag = cornerRadius * Math.SQRT1_2;
+	// Ordonnée des lignes droites, juste devant les tribunes (au-delà du mur).
+	const straightY = CENTER_Y - TURN_RADIUS - OUTER_WALL_DISTANCE - 25;
+	return [
+		// Coins extérieurs des deux virages.
+		{x: spineX2 + diag, y: CENTER_Y - diag},
+		{x: spineX2 + diag, y: CENTER_Y + diag},
+		{x: spineX1 - diag, y: CENTER_Y - diag},
+		{x: spineX1 - diag, y: CENTER_Y + diag},
+		// Lignes droites, côté tribunes (haut puis bas).
+		{x: spineX1 + 225, y: straightY},
+		{x: spineX2 - 225, y: straightY},
+		{x: spineX1 + 225, y: 2 * CENTER_Y - straightY},
+		{x: spineX2 - 225, y: 2 * CENTER_Y - straightY},
+		// Au-dessus de la zone des stands.
+		{x: CENTER_X, y: 770},
+	];
+}
+
 const LAP_LENGTH = 2 * (2 * SPINE_HALF_LENGTH) + 2 * Math.PI * TURN_RADIUS;
 
 export const CLASSIC_OVAL: TrackData = {
@@ -54,7 +86,7 @@ export const CLASSIC_OVAL: TrackData = {
 	centerY: CENTER_Y,
 	trackHalfWidth: TRACK_HALF_WIDTH,
 	kerbWidth: 10,
-	outerWallDistance: TRACK_HALF_WIDTH + 22,
+	outerWallDistance: OUTER_WALL_DISTANCE,
 	startLineS: 0,
 	startLineX: START_LINE_X,
 	// Quatre points de contrôle : ligne + trois intermédiaires (§9.3).
@@ -66,6 +98,7 @@ export const CLASSIC_OVAL: TrackData = {
 	],
 	gridSlots: buildGridSlots(),
 	pitBoxes: buildPitBoxes(),
+	floodlights: buildFloodlights(),
 	// Voie des stands parallèle à la ligne droite principale, côté intérieur :
 	// tablier des dalles d'arrêt (y 878-916) puis voie de circulation (y 916-955).
 	pitLane: {x1: 700, y1: 878, x2: 1700, y2: 955},
