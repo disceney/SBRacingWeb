@@ -69,9 +69,10 @@ class TouchButton {
 }
 
 /**
- * Overlay de boutons virtuels (§7.3) : direction, accélérateur, frein, pause
- * et plein écran. Créé uniquement sur appareil tactile ; alimente
- * `PlayerController` via `state` et remonte `onPause` / `onFullscreen`.
+ * Overlay de boutons virtuels (§7.3) : direction, accélérateur, frein, pause,
+ * plein écran et confirmation manuelle d'accrochage aux stands. Créé
+ * uniquement sur appareil tactile ; alimente `PlayerController` via `state`
+ * et remonte `onPause` / `onFullscreen` / `onDock`.
  */
 export class TouchControls {
 	/** Vrai si l'appareil courant expose une entrée tactile. */
@@ -81,6 +82,8 @@ export class TouchControls {
 
 	onPause: (() => void) | null = null;
 	onFullscreen: (() => void) | null = null;
+	/** Confirmation manuelle d'accrochage aux stands (bouton STAND). */
+	onDock: (() => void) | null = null;
 
 	private readonly steerLeft: TouchButton;
 	private readonly steerRight: TouchButton;
@@ -88,6 +91,7 @@ export class TouchControls {
 	private readonly throttleButton: TouchButton;
 	private readonly pauseButton: TouchButton;
 	private readonly fullscreenButton: TouchButton;
+	private readonly dockButton: TouchButton;
 
 	constructor(scene: Phaser.Scene) {
 		// Trois pointeurs additionnels : diriger, accélérer et freiner en même temps.
@@ -99,11 +103,21 @@ export class TouchControls {
 		this.throttleButton = new TouchButton(scene, {x: 890, y: 430, glyph: "ACCÉL", fontSize: "10px"});
 		this.pauseButton = new TouchButton(scene, {x: 920, y: 30, glyph: "⏸", fontSize: "22px"});
 		this.fullscreenButton = new TouchButton(scene, {x: 865, y: 30, glyph: "⛶", fontSize: "22px"});
+		// Invite d'accrochage manuel : caché par défaut, révélé par la scène
+		// lorsque l'invite est active (voir setDockButtonVisible).
+		this.dockButton = new TouchButton(scene, {x: 890, y: 350, glyph: "STAND", fontSize: "10px"});
+		this.dockButton.container.setVisible(false);
 
 		this.pauseButton.onPress = () => this.onPause?.();
 		this.fullscreenButton.onPress = () => this.onFullscreen?.();
+		this.dockButton.onPress = () => this.onDock?.();
 
 		scene.events.once(Phaser.Scenes.Events.SHUTDOWN, () => this.destroy());
+	}
+
+	/** Bascule la visibilité du bouton d'accrochage manuel selon l'invite active. */
+	setDockButtonVisible(visible: boolean): void {
+		this.dockButton.container.setVisible(visible);
 	}
 
 	/** État courant agrégé des boutons de direction, frein et accélérateur. */
@@ -122,5 +136,6 @@ export class TouchControls {
 		this.throttleButton.destroy();
 		this.pauseButton.destroy();
 		this.fullscreenButton.destroy();
+		this.dockButton.destroy();
 	}
 }

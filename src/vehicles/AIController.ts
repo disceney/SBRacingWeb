@@ -37,6 +37,16 @@ export class AIController {
 	private readonly spinSafety: number;
 	private stuckTimer = 0;
 	private reverseTimer = 0;
+	/** Côté de dépassement engagé (0 = aucun) : conservé par hystérésis tant qu'il reste viable. */
+	private overtakeSide: -1 | 0 | 1 = 0;
+	/** Rival actuellement suivi en dépassement et durée de blocage derrière lui (urgence). */
+	private blockedCarIndex = -1;
+	private blockedTimer = 0;
+	/** Décalage défensif courant et rival déjà traité pour l'approche en cours (§ défense). */
+	private defenseOffset = 0;
+	private defendedCarIndex = -1;
+	/** Signe de dérive latérale propre au véhicule, réutilisé lors des erreurs occasionnelles. */
+	private readonly driftSign: 1 | -1;
 
 	constructor(vehicle: Vehicle, driver: DriverProfile, track: Track) {
 		this.vehicle = vehicle;
@@ -44,9 +54,11 @@ export class AIController {
 		this.track = track;
 		this.offset = LINE_OFFSETS[driver.preferredLine];
 		this.targetOffset = this.offset;
-		this.pace = 0.86 + driver.skill * 0.13;
+		// Écart de rythme légèrement accentué entre pilotes faibles et forts.
+		this.pace = 0.84 + driver.skill * 0.16;
 		this.gripFactor = 0.9 + driver.skill * 0.12;
 		this.spinSafety = 0.97 + driver.aggression * 0.02;
+		this.driftSign = Math.sin(vehicle.index * 3.1) >= 0 ? 1 : -1;
 	}
 
 	/**
@@ -147,48 +159,127 @@ export class AIController {
 		}
 
 		const s = this.track.progressAt(v.x, v.y);
+		const lookahead = clamp(v.vLong * 0.55, 45, 165);
+		const sAhead = s + lookahead;
+
+		// — Bruit d'imprécision du pilote : source commune à la direction, à la
+		// dérive latérale et au lever de pied occasionnels (§ rythmes). Jamais
+		// actif pour l'autopilote (consistency = 1 dans AUTOPILOT_DRIVER).
+		const noiseWave = Math.sin(time * 1.7 + v.index * 2.3);
+		const noise = (1 - this.driver.consistency) * 0.055 * noiseWave;
+		const errorThreshold = 0.75 + this.driver.consistency * 0.25;
+		const errorStrength = clamp(
+			(noiseWave - errorThreshold) / Math.max(0.02, 1 - errorThreshold),
+			0,
+			1,
+		);
 
 		// — Évitement et dépassement.
 		let speedLimit = Infinity;
 		const blocker = this.findBlocker(s, vehicles);
 		if (blocker) {
+			this.defendedCarIndex = -1;
+			if (blocker.car.index !== this.blockedCarIndex) {
+				this.blockedCarIndex = blocker.car.index;
+				this.blockedTimer = 0;
+				this.overtakeSide = 0;
+			} else {
+				this.blockedTimer += dt;
+			}
 			const blockerOff = this.track.signedDistance(blocker.car.x, blocker.car.y);
 			const stopped = blocker.car.speed < 25;
-			// Choix du côté offrant le plus d'espace, biaisé vers l'intérieur.
-			const room = stopped ? 55 : 45;
-			let side = blockerOff > this.offset ? -1 : 1;
-			if (Math.abs(blockerOff - this.offset) < 8) side = blockerOff >= 0 ? -1 : 1;
-			const candidate = clamp(blockerOff + side * room, -MAX_OFFSET, MAX_OFFSET);
-			const alternative = clamp(blockerOff - side * room, -MAX_OFFSET, MAX_OFFSET);
-			this.targetOffset = this.isSlotFree(candidate, s, vehicles, blocker.car)
-				? candidate
-				: alternative;
-			// Régulation de l'allure tant que le dépassement n'est pas engagé.
+
+			// Marge latérale accrue en trafic dense, pour limiter les accrochages en peloton.
+			const nearby = this.countNearby(s, vehicles);
+			const trafficMargin = nearby >= 3 ? 6 : nearby === 2 ? 3 : 0;
+
+			// Urgence de dépassement croissante avec le temps passé derrière le même
+			// rival, modulée par l'agressivité : couloir plus étroit accepté sans
+			// jamais descendre sous un plancher sûr.
+			const urgency = this.driver.aggression * clamp((this.blockedTimer - 1.5) / 3, 0, 1);
+			const room = (stopped ? 55 : 45) - urgency * 15;
+			const clearance = 30 - urgency * 8 + trafficMargin;
+
+			// Choix du côté offrant le plus d'espace, évalué des deux côtés puis
+			// conservé tant qu'il reste viable (hystérésis anti-oscillation).
+			const leftOffset = clamp(blockerOff - room, -MAX_OFFSET, MAX_OFFSET);
+			const rightOffset = clamp(blockerOff + room, -MAX_OFFSET, MAX_OFFSET);
+			const leftFree = this.isSlotFree(leftOffset, s, vehicles, blocker.car, clearance);
+			const rightFree = this.isSlotFree(rightOffset, s, vehicles, blocker.car, clearance);
+			const sideStillFree =
+				this.overtakeSide === -1 ? leftFree : this.overtakeSide === 1 ? rightFree : false;
+			if (!sideStillFree) {
+				const preferInside = blockerOff >= 0;
+				if (leftFree && rightFree) this.overtakeSide = preferInside ? -1 : 1;
+				else if (leftFree) this.overtakeSide = -1;
+				else if (rightFree) this.overtakeSide = 1;
+				else this.overtakeSide = preferInside ? -1 : 1;
+			}
+			this.targetOffset = this.overtakeSide === -1 ? leftOffset : rightOffset;
+
+			// Régulation de l'allure tant que le dépassement n'est pas engagé : lever
+			// le pied progressivement si aucun couloir n'est libre, plutôt que percuter.
 			const clearing = Math.abs(this.offset - blockerOff) > 30;
 			if (!clearing) {
 				const closeness = 1 - blocker.gap / 130;
 				const patience = 0.9 + this.driver.aggression * 0.1;
-				speedLimit = stopped
+				let limit = stopped
 					? Math.max(60, blocker.car.speed + 40)
 					: Math.max(40, blocker.car.speed * (patience + 0.06 * (1 - closeness)));
+				if (!stopped && !leftFree && !rightFree) {
+					limit = Math.min(limit, blocker.car.speed * (1 - 0.4 * closeness));
+				}
+				speedLimit = limit;
 			}
 		} else {
-			this.targetOffset = LINE_OFFSETS[this.driver.preferredLine];
+			this.blockedCarIndex = -1;
+			this.blockedTimer = 0;
+			this.overtakeSide = 0;
+
+			// — Trajectoire de base : ligne optimale du circuit (extérieur en
+			// entrée/sortie de virage, corde à l'apex), légèrement biaisée vers
+			// la ligne préférée du pilote hors virage — en virage l'optimale
+			// prime pour ne pas dégrader l'appui/la vitesse de passage.
+			const curveAhead = this.track.curvatureAt(sAhead);
+			const preferenceBias = curveAhead > 0 ? 0.08 : 0.35;
+			const optimal = this.track.optimalOffsetAt(sAhead);
+			const preferred = LINE_OFFSETS[this.driver.preferredLine];
+			this.targetOffset = optimal * (1 - preferenceBias) + preferred * preferenceBias;
+
+			// — Défense légère, jamais en dépassement ni aux stands : décale
+			// modestement la ligne vers le rival proche derrière, une fois par
+			// approche (hystérésis via son identité), amplitude selon l'agressivité.
+			const threat = this.findRearThreat(s, vehicles);
+			if (threat) {
+				if (threat.car.index !== this.defendedCarIndex) {
+					const amplitude = 6 + this.driver.aggression * 14;
+					this.defenseOffset = clamp(
+						Math.sign(threat.lateral) * amplitude,
+						-MAX_OFFSET - this.targetOffset,
+						MAX_OFFSET - this.targetOffset,
+					);
+					this.defendedCarIndex = threat.car.index;
+				}
+			} else {
+				this.defendedCarIndex = -1;
+				this.defenseOffset += clamp(-this.defenseOffset, -40 * dt, 40 * dt);
+			}
+			this.targetOffset = clamp(this.targetOffset + this.defenseOffset, -MAX_OFFSET, MAX_OFFSET);
 		}
 
 		// — Retour progressif vers la trajectoire (§11.2).
 		this.offset += clamp(this.targetOffset - this.offset, -60 * dt, 60 * dt);
 
-		// — Point de poursuite sur la ligne décalée.
-		const lookahead = clamp(v.vLong * 0.55, 45, 165);
-		const ahead = this.track.centerlineAt(s + lookahead);
-		const targetX = ahead.x - ahead.ty * this.offset;
-		const targetY = ahead.y + ahead.tx * this.offset;
+		// — Point de poursuite sur la ligne décalée, avec dérive occasionnelle
+		// des pilotes peu réguliers (§ rythmes ; jamais pour l'autopilote).
+		const drivingOffset = this.offset + errorStrength * this.driftSign * 6;
+		const ahead = this.track.centerlineAt(sAhead);
+		const targetX = ahead.x - ahead.ty * drivingOffset;
+		const targetY = ahead.y + ahead.tx * drivingOffset;
 
 		// — Cap : correction proportionnelle + bruit d'imprécision du pilote.
 		const desired = Math.atan2(targetY - v.y, targetX - v.x);
 		const angleErr = wrapAngle(desired - v.heading);
-		const noise = (1 - this.driver.consistency) * 0.055 * Math.sin(time * 1.7 + v.index * 2.3);
 		// Tête-à-queue : réalignement prioritaire à vitesse réduite.
 		const reversed = Math.abs(angleErr) > 2.2;
 		v.controls.steer = clamp(angleErr * 2.4 + noise, -1, 1);
@@ -206,6 +297,8 @@ export class AIController {
 				target = Math.min(target, vHere);
 			}
 		}
+		// Bref lever de pied occasionnel des pilotes peu réguliers.
+		target *= 1 - errorStrength * 0.12;
 		target = Math.min(target, speedLimit);
 		if (reversed) target = Math.min(target, 50);
 		// Herbe : ralentir et revenir en piste sans excès.
@@ -292,7 +385,13 @@ export class AIController {
 	}
 
 	/** Vérifie qu'aucune autre voiture n'occupe le couloir visé. */
-	private isSlotFree(offset: number, s: number, vehicles: Vehicle[], ignored: Vehicle): boolean {
+	private isSlotFree(
+		offset: number,
+		s: number,
+		vehicles: Vehicle[],
+		ignored: Vehicle,
+		minClearance = 30,
+	): boolean {
 		const v = this.vehicle;
 		for (const other of vehicles) {
 			if (other === v || other === ignored || other.inPit) continue;
@@ -300,9 +399,41 @@ export class AIController {
 			const behind = wrapDistance(s - other.progressS, this.track.lapLength);
 			if (gap > 90 && behind > 40) continue;
 			const otherOff = this.track.signedDistance(other.x, other.y);
-			if (Math.abs(otherOff - offset) < 30) return false;
+			if (Math.abs(otherOff - offset) < minClearance) return false;
 		}
 		return true;
+	}
+
+	/** Nombre de voitures proches en distance curviligne, pour jauger la densité du trafic. */
+	private countNearby(s: number, vehicles: Vehicle[]): number {
+		const v = this.vehicle;
+		let n = 0;
+		for (const other of vehicles) {
+			if (other === v || other.inPit || other.raceState === "grid") continue;
+			const gap = Math.abs(wrapDistance(other.progressS - s, this.track.lapLength));
+			if (gap < 70) n++;
+		}
+		return n;
+	}
+
+	/** Rival le plus proche derrière avec recouvrement latéral partiel (§ défense légère). */
+	private findRearThreat(
+		s: number,
+		vehicles: Vehicle[],
+	): { car: Vehicle; lateral: number } | null {
+		const v = this.vehicle;
+		const window = 25 + (this.driver.defense ?? 0.5) * 30;
+		let best: { car: Vehicle; lateral: number; gap: number } | null = null;
+		for (const other of vehicles) {
+			if (other === v || other.inPit || other.raceState === "grid") continue;
+			const gap = wrapDistance(s - other.progressS, this.track.lapLength);
+			if (gap <= 2 || gap > window) continue;
+			const otherOff = this.track.signedDistance(other.x, other.y);
+			const lateral = otherOff - this.offset;
+			if (Math.abs(lateral) < 8 || Math.abs(lateral) >= 34) continue;
+			if (!best || gap < best.gap) best = {car: other, lateral, gap};
+		}
+		return best;
 	}
 }
 

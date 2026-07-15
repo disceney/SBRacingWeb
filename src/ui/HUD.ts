@@ -2,6 +2,7 @@ import Phaser from "phaser";
 import {GAME_HEIGHT, GAME_WIDTH, unitsToMph} from "../app/constants";
 import {audio} from "../audio/AudioManager";
 import {t} from "../data/translations";
+import {DayNightSystem} from "../race/DayNightSystem";
 import {formatLapTime} from "../race/TimingSystem";
 import type {RaceController} from "../race/RaceController";
 import type {Vehicle} from "../vehicles/Vehicle";
@@ -19,6 +20,8 @@ const FONT_SMALL = {fontFamily: "monospace", fontSize: "11px", color: "#b8bec8"}
  */
 export class HUD {
 	private readonly controller: RaceController;
+	/** Réutilise le même utilitaire pur que RaceScene pour l'horloge et la phase (aucun état). */
+	private readonly dayNight = new DayNightSystem();
 
 	private readonly fuelBar: Phaser.GameObjects.Graphics;
 	private readonly posText: Phaser.GameObjects.Text;
@@ -29,6 +32,8 @@ export class HUD {
 	private readonly standingTexts: Phaser.GameObjects.Text[];
 	private readonly statusText: Phaser.GameObjects.Text;
 	private readonly warningText: Phaser.GameObjects.Text;
+	private readonly clockText: Phaser.GameObjects.Text;
+	private readonly phaseDot: Phaser.GameObjects.Graphics;
 	private readonly muteText: Phaser.GameObjects.Text;
 	private readonly autopilotText: Phaser.GameObjects.Text;
 
@@ -66,9 +71,11 @@ export class HUD {
 		// Colonne 5 : concurrents proches au classement.
 		this.standingTexts = Array.from({length: 5}, (_, i) => make(620, 6 + i * 14, FONT_SMALL));
 
-		// Colonne 6 : stands et avertissements.
+		// Colonne 6 : stands, avertissements et horloge fictive du cycle jour/nuit.
 		this.statusText = make(810, 10, {...FONT_SMALL, color: "#68c8f0"});
 		this.warningText = make(810, 34, {...FONT, color: "#f05840"});
+		this.phaseDot = scene.add.graphics().setScrollFactor(0).setDepth(101);
+		this.clockText = make(826, 56, FONT_SMALL);
 		this.muteText = scene.add
 			.text(GAME_WIDTH - 8, 6, t("race.muted"), {...FONT_SMALL, color: "#e8a838"})
 			.setOrigin(1, 0)
@@ -80,13 +87,19 @@ export class HUD {
 			.setDepth(101);
 	}
 
-	update(timeMs: number): void {
+	update(timeMs: number, dockPromptActive: boolean, dayNightFraction: number): void {
 		const c = this.controller;
 		const player = c.player;
 		const displayLap = Math.min(c.settings.laps, Math.max(1, player.lap + 1));
 
 		this.posText.setText(`${t("hud.position")} ${c.positionOf(player)}/${c.vehicles.length}`);
-		this.lapText.setText(`${t("hud.lap")} ${displayLap}/${c.settings.laps}`);
+		// Tour de formation (§13.1) : le libellé de statut remplace le compteur
+		// de tours tant que la course n'est pas lancée.
+		this.lapText.setText(
+			c.phase === "formation"
+				? t("race.formationLap")
+				: `${t("hud.lap")} ${displayLap}/${c.settings.laps}`,
+		);
 
 		// Retard en tours sur le meneur.
 		const leader = c.ranking[0]!;
@@ -100,7 +113,8 @@ export class HUD {
 		this.drawFuel(player, timeMs);
 		this.drawTimes(player);
 		this.drawStandings();
-		this.drawStatus(player, timeMs);
+		this.drawStatus(player, timeMs, dockPromptActive);
+		this.drawClock(dayNightFraction);
 		this.muteText.setVisible(audio.muted);
 		this.autopilotText.setVisible(c.autopilotEnabled);
 	}
@@ -169,14 +183,42 @@ export class HUD {
 		}
 	}
 
-	private drawStatus(player: Vehicle, timeMs: number): void {
+	/**
+	 * Horloge fictive du cycle jour/nuit et petit disque de phase : couleur
+	 * dégradée du jaune plein jour (#f0d048) au bleu pleine nuit (#68c8f0),
+	 * proportionnellement à l'obscurité — évite tout glyphe Unicode douteux.
+	 */
+	private drawClock(fraction: number): void {
+		const state = this.dayNight.computeFraction(fraction);
+		this.clockText.setText(this.dayNight.formatTimeOfDay(fraction));
+
+		const dayColor = {r: 0xf0, g: 0xd0, b: 0x48};
+		const nightColor = {r: 0x68, g: 0xc8, b: 0xf0};
+		const darkness = state.darkness;
+		const r = Math.round(dayColor.r + (nightColor.r - dayColor.r) * darkness);
+		const gComp = Math.round(dayColor.g + (nightColor.g - dayColor.g) * darkness);
+		const b = Math.round(dayColor.b + (nightColor.b - dayColor.b) * darkness);
+
+		const g = this.phaseDot;
+		g.clear();
+		g.fillStyle((r << 16) | (gComp << 8) | b, 1);
+		g.fillCircle(816, BAR_TOP + 61, 5);
+		g.lineStyle(1, 0x585f6e, 1);
+		g.strokeCircle(816, BAR_TOP + 61, 5);
+	}
+
+	private drawStatus(player: Vehicle, timeMs: number, dockPromptActive: boolean): void {
 		// — État des stands.
 		switch (player.pitPhase) {
 			case "entering":
 				this.statusText.setText(t("hud.pit.entering"));
 				break;
 			case "toBox":
-				this.statusText.setText(t("hud.pit.toBox", {n: player.pitBoxIndex + 1}));
+				this.statusText.setText(
+					dockPromptActive
+						? t("hud.pit.readyToDock")
+						: t("hud.pit.toBox", {n: player.pitBoxIndex + 1}),
+				);
 				break;
 			case "stopped":
 				this.statusText.setText(t("hud.pit.stopped"));

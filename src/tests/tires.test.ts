@@ -131,7 +131,8 @@ describe("changement de pneus aux stands", () => {
 		v.x = box.x - 2;
 		v.y = box.y;
 		v.progressS = track.progressAt(v.x, v.y);
-		pit.step(v, {dt: DT, wantPit: false, lapsRemaining: 2, aiDriven: !v.isPlayer});
+		// Confirmation manuelle armée pour le joueur ; sans effet pour l'IA.
+		pit.step(v, {dt: DT, wantPit: false, lapsRemaining: 2, aiDriven: !v.isPlayer, dockRequested: true});
 		expect(v.pitPhase).toBe("stopped");
 	}
 

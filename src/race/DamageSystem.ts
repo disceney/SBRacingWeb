@@ -68,4 +68,18 @@ export class DamageSystem {
 		}
 		return events;
 	}
+
+	/**
+	 * Réparation partielle (ex. réapparition après un blocage) : remonte la
+	 * santé à au moins floor (fraction [0, 1] de la santé max, ~0.5 = niveau
+	 * roulable) seulement si elle est pire, sans jamais dégrader une voiture
+	 * plus saine. Pneus et carburant ne sont pas concernés.
+	 */
+	repairTo(vehicle: Vehicle, floor: number): void {
+		const target = floor * 100;
+		if (vehicle.health < target) {
+			vehicle.health = target;
+			vehicle.healthFactor = vehicle.health / 100;
+		}
+	}
 }

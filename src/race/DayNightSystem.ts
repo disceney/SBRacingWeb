@@ -19,6 +19,17 @@ const DAWN_START = 0.75;
 /** Seuil d'obscurité au-delà duquel les lumières s'allument. */
 const LIGHTS_ON_THRESHOLD = 0.25;
 
+/**
+ * Horloge fictive de la course : mapping LINÉAIRE progression → heure, calé
+ * sur un départ à 14 h et une arrivée à 6 h le lendemain (16 h fictives
+ * réparties sur progress 0→1). Avec ce mapping, les seuils de phase tombent
+ * sur des heures plausibles : dusk (0.2) → 17:12, night (0.4) → 20:24,
+ * dawn (0.75) → 02:00.
+ */
+const CLOCK_START_HOUR = 14;
+const CLOCK_DURATION_HOURS = 16;
+const MINUTES_PER_DAY = 24 * 60;
+
 function clamp(value: number, min: number, max: number): number {
 	return Math.min(max, Math.max(min, value));
 }
@@ -56,5 +67,19 @@ export class DayNightSystem {
 		}
 		const darkness = 1 - smoothstep((f - DAWN_START) / (1 - DAWN_START));
 		return {phase: "dawn", darkness, lightsOn: darkness > LIGHTS_ON_THRESHOLD};
+	}
+
+	/** Convertit une fraction de course en heure fictive (mapping linéaire, voir plus haut). */
+	timeOfDayAt(progress: number): {hours: number; minutes: number} {
+		const f = clamp(progress, 0, 1);
+		const totalMinutes = CLOCK_START_HOUR * 60 + f * CLOCK_DURATION_HOURS * 60;
+		const minutesOfDay = Math.round(totalMinutes) % MINUTES_PER_DAY;
+		return {hours: Math.floor(minutesOfDay / 60), minutes: minutesOfDay % 60};
+	}
+
+	/** Heure fictive formatée « HH:MM » (zéro-paddée) à partir d'une fraction de course. */
+	formatTimeOfDay(progress: number): string {
+		const {hours, minutes} = this.timeOfDayAt(progress);
+		return `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}`;
 	}
 }

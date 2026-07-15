@@ -65,26 +65,36 @@ export function ensureTrackTexture(scene: Phaser.Scene, track: Track): string {
 	stadiumPath(r);
 	ctx.stroke();
 	ctx.setLineDash([]);
+	// Ombre portée d'un pixel de part et d'autre de la bordure (double rangée : jonction
+	// asphalte/kerb et jonction kerb/pelouse), pour un léger relief.
+	ctx.lineWidth = 2;
+	ctx.strokeStyle = DECOR.kerbShadow;
+	stadiumPath(r - d.trackHalfWidth);
+	ctx.stroke();
+	stadiumPath(r + d.trackHalfWidth);
+	ctx.stroke();
+	stadiumPath(r - (d.trackHalfWidth + d.kerbWidth));
+	ctx.stroke();
+	stadiumPath(r + (d.trackHalfWidth + d.kerbWidth));
+	ctx.stroke();
 
-	// — Asphalte de la piste par-dessus, avec trace de gomme centrale.
+	// — Asphalte de la piste par-dessus.
 	ctx.lineWidth = d.trackHalfWidth * 2;
 	ctx.strokeStyle = DECOR.asphalt;
 	stadiumPath(r);
 	ctx.stroke();
-	ctx.lineWidth = 90;
-	ctx.strokeStyle = "rgba(0,0,0,0.08)";
-	stadiumPath(r);
-	ctx.stroke();
 
-	// — Lignes de voies en pointillés.
+	// — Joints d'asphalte : traits transversaux fins régulièrement espacés.
+	drawAsphaltJoints(ctx, track);
+
+	// — Trace de gomme suivant la trajectoire optimale réelle, plus marquée en virage.
+	drawRubberTrace(ctx, rng, track);
+
+	// — Lignes de voies en pointillés, avec quelques tirets usés plus pâles.
 	ctx.lineWidth = 3;
-	ctx.setLineDash([18, 22]);
-	ctx.strokeStyle = "rgba(232,232,232,0.55)";
 	for (const offset of [-37, 37]) {
-		stadiumPath(r + offset);
-		ctx.stroke();
+		drawWornDashes(ctx, rng, track, offset);
 	}
-	ctx.setLineDash([]);
 
 	// — Mur extérieur avec panneaux publicitaires fictifs.
 	ctx.lineWidth = 10;
@@ -196,6 +206,93 @@ export function ensureTrackTexture(scene: Phaser.Scene, track: Track): string {
 	return key;
 }
 
+/** Point de la ligne centrale à l'abscisse s, décalé latéralement (positif = extérieur du stade). */
+function offsetPoint(track: Track, s: number, offset: number): {x: number; y: number; tx: number; ty: number} {
+	const c = track.centerlineAt(s);
+	return {x: c.x + c.ty * -offset, y: c.y + c.tx * offset, tx: c.tx, ty: c.ty};
+}
+
+/** Joints d'asphalte : traits transversaux fins, régulièrement espacés sur tout le tour. */
+function drawAsphaltJoints(ctx: CanvasRenderingContext2D, track: Track): void {
+	const halfWidth = track.data.trackHalfWidth;
+	ctx.lineWidth = 1;
+	ctx.strokeStyle = DECOR.asphaltJoint;
+	ctx.globalAlpha = 0.35;
+	for (let s = 0; s < track.lapLength; s += 130) {
+		const inner = offsetPoint(track, s, -halfWidth);
+		const outer = offsetPoint(track, s, halfWidth);
+		ctx.beginPath();
+		ctx.moveTo(inner.x, inner.y);
+		ctx.lineTo(outer.x, outer.y);
+		ctx.stroke();
+	}
+	ctx.globalAlpha = 1;
+}
+
+/**
+ * Trace de gomme suivant la vraie trajectoire optimale (ligne centrale décalée
+ * par optimalOffsetAt), plus sombre dans les virages, complétée de courtes
+ * stries de freinage semées à l'approche de chaque virage.
+ */
+function drawRubberTrace(ctx: CanvasRenderingContext2D, rng: () => number, track: Track): void {
+	const step = 20;
+	ctx.lineCap = "round";
+	for (let s = 0; s < track.lapLength; s += step) {
+		const sEnd = Math.min(s + step, track.lapLength);
+		const p1 = offsetPoint(track, s, track.optimalOffsetAt(s));
+		const p2 = offsetPoint(track, sEnd, track.optimalOffsetAt(sEnd));
+		const inTurn = track.curvatureAt(s + step / 2) > 0;
+		ctx.lineWidth = inTurn ? 42 : 30;
+		ctx.strokeStyle = DECOR.rubber;
+		ctx.globalAlpha = inTurn ? 0.34 : 0.16;
+		ctx.beginPath();
+		ctx.moveTo(p1.x, p1.y);
+		ctx.lineTo(p2.x, p2.y);
+		ctx.stroke();
+	}
+	ctx.lineCap = "butt";
+
+	// Stries de freinage courtes à l'approche de chaque virage (entrée large → corde).
+	const straightLen = 2 * track.data.spineHalfLength;
+	const arcLen = Math.PI * track.data.turnRadius;
+	for (const turnStart of [straightLen, 2 * straightLen + arcLen]) {
+		for (let i = 0; i < 6; i++) {
+			const s = turnStart - rng() * 90;
+			const offset = 60 - rng() * 80;
+			const base = offsetPoint(track, s, offset);
+			const len = 10 + rng() * 14;
+			ctx.strokeStyle = "#101012";
+			ctx.globalAlpha = 0.2 + rng() * 0.25;
+			ctx.lineWidth = 2;
+			ctx.beginPath();
+			ctx.moveTo(base.x, base.y);
+			ctx.lineTo(base.x - base.tx * len, base.y - base.ty * len);
+			ctx.stroke();
+		}
+	}
+	ctx.globalAlpha = 1;
+}
+
+/** Tirets de voie, avec quelques segments usés (plus pâles) semés via rng. */
+function drawWornDashes(ctx: CanvasRenderingContext2D, rng: () => number, track: Track, offset: number): void {
+	const dashLen = 18;
+	const gapLen = 22;
+	ctx.strokeStyle = DECOR.lineWhite;
+	let s = 0;
+	while (s < track.lapLength) {
+		const sEnd = Math.min(s + dashLen, track.lapLength);
+		const p1 = offsetPoint(track, s, offset);
+		const p2 = offsetPoint(track, sEnd, offset);
+		ctx.globalAlpha = rng() < 0.22 ? 0.22 : 0.55;
+		ctx.beginPath();
+		ctx.moveTo(p1.x, p1.y);
+		ctx.lineTo(p2.x, p2.y);
+		ctx.stroke();
+		s += dashLen + gapLen;
+	}
+	ctx.globalAlpha = 1;
+}
+
 /** Tribune : structure, rangées de sièges et public en pixels colorés. */
 function drawGrandstand(
 	ctx: CanvasRenderingContext2D,
@@ -209,14 +306,24 @@ function drawGrandstand(
 	ctx.fillRect(x, y, width, height);
 	ctx.fillStyle = DECOR.roof;
 	ctx.fillRect(x - 8, y - 8, width + 16, 10);
-	const crowdColors = ["#e8e0d0", "#d82800", "#0048d8", "#f0c000", "#e858a0", "#101014", "#00a020"];
+	const crowdColors = [
+		"#e8e0d0",
+		"#d82800",
+		"#0048d8",
+		"#f0c000",
+		"#e858a0",
+		"#101014",
+		"#00a020",
+		"#8020c0",
+		"#f0f0f0",
+	];
 	for (let row = 0; row < Math.floor(height / 12) - 1; row++) {
 		const rowY = y + 10 + row * 12;
 		ctx.fillStyle = DECOR.standSeat;
 		ctx.fillRect(x + 4, rowY, width - 8, 8);
-		// Public : points colorés clairsemés.
+		// Public : points colorés, plus dense et plus varié qu'une simple rangée clairsemée.
 		for (let px = x + 6; px < x + width - 6; px += 5) {
-			if (rng() < 0.72) {
+			if (rng() < 0.82) {
 				ctx.fillStyle = crowdColors[Math.floor(rng() * crowdColors.length)]!;
 				ctx.fillRect(px, rowY + 2, 3, 4);
 			}
@@ -237,6 +344,8 @@ function drawBillboards(
 		["TURBO COLA", "#0048d8", "#ffe860"],
 		["PIXEL OIL", "#101014", "#f0c000"],
 		["WEB GP 98", "#00a020", "#ffffff"],
+		["NEON TIRES", "#e858a0", "#101014"],
+		["RETRO FUEL", "#20c898", "#101014"],
 	];
 	ctx.font = "bold 12px monospace";
 	ctx.textAlign = "center";
@@ -353,4 +462,48 @@ function drawInfield(
 		ctx.arc(x, y, 8 + rng() * 6, 0, Math.PI * 2);
 		ctx.fill();
 	}
+
+	// Tentes d'exposants, à l'écart de la route de service.
+	const tentColors: Array<[string, string]> = [
+		["#e8e8e8", "#d82800"],
+		["#e8e8e8", "#0048d8"],
+		["#e8e8e8", "#f0c000"],
+	];
+	for (let i = 0; i < 3; i++) {
+		const x = cx - 90 + i * 55 + rng() * 8;
+		const y = cy - 200 + rng() * 10;
+		const [wall, roof] = tentColors[i]!;
+		drawTent(ctx, x, y, 34, 26, wall, roof);
+	}
+
+	// Second bosquet, arbres plus sombres, côté opposé.
+	for (let i = 0; i < 8; i++) {
+		const x = cx + 260 + rng() * 120;
+		const y = cy - 40 + rng() * 140;
+		ctx.fillStyle = DECOR.treeDark;
+		ctx.beginPath();
+		ctx.arc(x, y, 7 + rng() * 5, 0, Math.PI * 2);
+		ctx.fill();
+	}
+}
+
+/** Tente d'exposant : base claire et toit triangulaire coloré. */
+function drawTent(
+	ctx: CanvasRenderingContext2D,
+	x: number,
+	y: number,
+	width: number,
+	height: number,
+	wall: string,
+	roof: string,
+): void {
+	ctx.fillStyle = wall;
+	ctx.fillRect(x, y + height / 2, width, height / 2);
+	ctx.fillStyle = roof;
+	ctx.beginPath();
+	ctx.moveTo(x, y + height / 2);
+	ctx.lineTo(x + width / 2, y);
+	ctx.lineTo(x + width, y + height / 2);
+	ctx.closePath();
+	ctx.fill();
 }

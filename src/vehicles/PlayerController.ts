@@ -16,7 +16,7 @@ const BUTTON_L2 = 6;
  * scène de course.
  */
 export class PlayerController {
-	/** Verrouillage des commandes avant le départ (§13.1). */
+	/** Verrouillage des commandes pendant le tour de formation, levé au drapeau vert (§13.1). */
 	locked = true;
 	private readonly scene: Phaser.Scene;
 	private readonly cursors: Phaser.Types.Input.Keyboard.CursorKeys;

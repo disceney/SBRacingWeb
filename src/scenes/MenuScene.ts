@@ -29,8 +29,6 @@ export class MenuScene extends Phaser.Scene {
 
 		new MenuList(this, 360, 210, [
 			{label: () => t("menu.quickRace"), onActivate: () => this.scene.start("setup")},
-			{label: () => `${t("menu.tutorial")} (${t("common.comingSoon")})`, disabled: true},
-			{label: () => `${t("menu.records")} (${t("common.comingSoon")})`, disabled: true},
 			{label: () => t("menu.options"), onActivate: () => this.scene.start("options")},
 			{label: () => t("menu.controls"), onActivate: () => this.scene.start("controls")},
 			{label: () => t("menu.credits"), onActivate: () => this.toggleCredits()},

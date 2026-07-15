@@ -14,16 +14,24 @@ export function ensureCarTexture(scene: Phaser.Scene, colorIndex: number, raceNu
 	if (scene.textures.exists(key)) return key;
 
 	const color = CAR_COLORS[colorIndex % CAR_COLORS.length]!;
+	// Variante de silhouette déterministe (aileron, bandes, toit) : ne modifie ni
+	// l'encombrement ni la lisibilité du numéro.
+	const variant = (colorIndex + raceNumber) % 3;
 	const canvas = scene.textures.createCanvas(key, CAR_SPRITE_WIDTH, CAR_SPRITE_HEIGHT);
 	if (!canvas) return key;
 	const ctx = canvas.getContext();
 	ctx.imageSmoothingEnabled = false;
 
-	// Roues (dépassent légèrement du corps).
+	// Roues (dépassent légèrement du corps), moyeu clair au centre de chaque jante.
 	ctx.fillStyle = "#101014";
 	for (const wx of [5, 31]) {
 		ctx.fillRect(wx, 1, 8, 4);
 		ctx.fillRect(wx, 19, 8, 4);
+	}
+	ctx.fillStyle = "#585860";
+	for (const wx of [5, 31]) {
+		ctx.fillRect(wx + 3, 2, 2, 2);
+		ctx.fillRect(wx + 3, 20, 2, 2);
 	}
 
 	// Carrosserie : capot vers +x, contour sombre.
@@ -37,14 +45,34 @@ export function ensureCarTexture(scene: Phaser.Scene, colorIndex: number, raceNu
 	ctx.fillStyle = color.dark;
 	ctx.fillRect(4, 17, 36, 3);
 
-	// Pare-brise avant et lunette arrière.
+	// Liserés de livrée : bande de capot (A) ou double filet latéral (B).
+	if (variant === 0) {
+		ctx.fillStyle = color.light;
+		ctx.fillRect(35, 4, 3, 16);
+	} else if (variant === 1) {
+		ctx.fillStyle = color.light;
+		ctx.fillRect(4, 9, 36, 1);
+		ctx.fillStyle = color.dark;
+		ctx.fillRect(4, 11, 36, 1);
+	}
+
+	// Pare-brise avant et lunette arrière, avec appui-tête et reflet d'habitacle.
 	ctx.fillStyle = "#1a2a44";
 	ctx.fillRect(27, 5, 4, 14);
 	ctx.fillRect(12, 5, 3, 14);
+	ctx.fillStyle = "#0e1626";
+	ctx.fillRect(29, 9, 2, 4);
+	ctx.fillStyle = "#4a6088";
+	ctx.fillRect(30, 6, 1, 2);
 
-	// Toit : zone centrale portant le numéro.
-	ctx.fillStyle = color.base;
+	// Toit : zone centrale portant le numéro, contrastée pour la variante C.
+	ctx.fillStyle = variant === 2 ? color.dark : color.base;
 	ctx.fillRect(15, 5, 12, 14);
+	// Liseré sombre puis disque blanc pour renforcer le contraste du numéro.
+	ctx.fillStyle = "#101014";
+	ctx.beginPath();
+	ctx.arc(21, 12, 7, 0, Math.PI * 2);
+	ctx.fill();
 	ctx.fillStyle = "#f0f0f0";
 	ctx.beginPath();
 	ctx.arc(21, 12, 6, 0, Math.PI * 2);
@@ -55,11 +83,32 @@ export function ensureCarTexture(scene: Phaser.Scene, colorIndex: number, raceNu
 	ctx.textBaseline = "middle";
 	ctx.fillText(String(raceNumber), 21, 13);
 
-	// Aileron arrière et calandre avant.
+	// Aileron arrière : large (A), étroit (B) ou double becquet (C) selon la variante.
 	ctx.fillStyle = "#101014";
-	ctx.fillRect(2, 4, 2, 16);
+	if (variant === 0) {
+		ctx.fillRect(2, 3, 3, 18);
+	} else if (variant === 1) {
+		ctx.fillRect(2, 6, 1, 12);
+	} else {
+		ctx.fillRect(2, 4, 2, 5);
+		ctx.fillRect(2, 15, 2, 5);
+	}
+
+	// Calandre avant.
 	ctx.fillStyle = "#d8d8e0";
 	ctx.fillRect(41, 6, 2, 12);
+
+	// Phares avant et feux arrière.
+	ctx.fillStyle = "#fff4c8";
+	ctx.fillRect(39, 5, 2, 2);
+	ctx.fillRect(39, 17, 2, 2);
+	ctx.fillStyle = "#e02818";
+	ctx.fillRect(2, 5, 1, 2);
+	ctx.fillRect(2, 17, 1, 2);
+
+	// Échappement.
+	ctx.fillStyle = "#6a6a72";
+	ctx.fillRect(3, 19, 2, 1);
 
 	canvas.refresh();
 	return key;

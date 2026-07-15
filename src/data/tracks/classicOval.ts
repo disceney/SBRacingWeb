@@ -18,7 +18,7 @@ const BOTTOM_Y = CENTER_Y + TURN_RADIUS;
 /** Grille à deux files derrière la ligne de départ (espacement 65 × 55, §9.2). */
 function buildGridSlots(): GridSlot[] {
 	const slots: GridSlot[] = [];
-	for (let i = 0; i < 15; i++) {
+	for (let i = 0; i < 20; i++) {
 		const row = Math.floor(i / 2);
 		const file = i % 2;
 		slots.push({
@@ -31,13 +31,13 @@ function buildGridSlots(): GridSlot[] {
 }
 
 /**
- * Emplacements de ravitaillement : quinze dalles attitrées (une par
- * concurrent, quinze voitures au maximum), adossées aux garages sur le
+ * Emplacements de ravitaillement : vingt dalles attitrées (une par
+ * concurrent, vingt voitures au maximum), adossées aux garages sur le
  * tablier situé au-dessus de la voie de circulation des stands.
  */
 function buildPitBoxes(): PitBox[] {
 	const boxes: PitBox[] = [];
-	for (let i = 0; i < 15; i++) {
+	for (let i = 0; i < 20; i++) {
 		boxes.push({x: 880 + i * 46, y: 897});
 	}
 	return boxes;
@@ -101,8 +101,10 @@ export const CLASSIC_OVAL: TrackData = {
 	floodlights: buildFloodlights(),
 	// Voie des stands parallèle à la ligne droite principale, côté intérieur :
 	// tablier des dalles d'arrêt (y 878-916) puis voie de circulation (y 916-955).
-	pitLane: {x1: 700, y1: 878, x2: 1700, y2: 955},
-	pitWall: {x1: 860, x2: 1540, y: 962},
+	// La rangée de vingt dalles (880 à 1754) impose l'élargissement du mur et
+	// de la zone de sortie ; l'entrée reste inchangée en amont des dalles.
+	pitLane: {x1: 700, y1: 878, x2: 1930, y2: 955},
+	pitWall: {x1: 860, x2: 1770, y: 962},
 	pitEntryZone: {x1: 700, x2: 860},
-	pitExitZone: {x1: 1540, x2: 1700},
+	pitExitZone: {x1: 1770, x2: 1930},
 };

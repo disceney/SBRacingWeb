@@ -24,6 +24,13 @@ export interface PitContext {
 	 * transitions suivent alors la logique IA, pas la détection de position.
 	 */
 	aiDriven: boolean;
+	/**
+	 * Confirmation manuelle armée par le joueur (touche E, manette A/Croix ou
+	 * bouton tactile) pour s'accrocher à sa dalle ; sans effet pour l'IA ou en
+	 * autopilote, où l'accrochage reste automatique. Optionnel : absent (donc
+	 * `undefined`) équivaut à non armé.
+	 */
+	dockRequested?: boolean;
 }
 
 /**
@@ -51,6 +58,17 @@ export class PitSystem {
 		const entryS = track.progressAt(d.pitEntryZone.x1, bottomY);
 		this.turnInFrom = entryS - 160;
 		this.turnInTo = entryS + 10;
+	}
+
+	/**
+	 * Fenêtre d'invite à la confirmation manuelle : le véhicule est en phase
+	 * `toBox` et approche de SA dalle (marge plus large que `nearBox`, pour
+	 * annoncer l'invite avant l'accrochage effectif).
+	 */
+	isDockPromptActive(vehicle: Vehicle): boolean {
+		if (vehicle.pitPhase !== "toBox") return false;
+		const box = this.track.data.pitBoxes[vehicle.pitBoxIndex]!;
+		return Math.abs(vehicle.x - box.x) < 70 && Math.abs(vehicle.y - box.y) < 24;
 	}
 
 	step(vehicle: Vehicle, ctx: PitContext): PitEvents {
@@ -101,11 +119,14 @@ export class PitSystem {
 			case "toBox": {
 				// Accrochage automatique : à l'approche lente de sa dalle, la
 				// voiture y est posée proprement (fini les oscillations de freinage).
+				// Le joueur manuel (hors autopilote) doit d'abord confirmer (touche E,
+				// manette ou bouton tactile) ; IA et autopilote restent automatiques.
 				const nearBox =
 					Math.abs(vehicle.x - box.x) < 22 &&
 					Math.abs(vehicle.y - box.y) < 20 &&
 					vehicle.speed < 30;
-				if (nearBox) {
+				const manual = vehicle.isPlayer && !ctx.aiDriven;
+				if (nearBox && (!manual || ctx.dockRequested)) {
 					dockAtBox(vehicle, box.x, box.y);
 					vehicle.pitPhase = "stopped";
 					vehicle.pitStops += 1;

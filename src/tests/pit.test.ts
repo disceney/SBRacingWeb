@@ -25,11 +25,12 @@ function stepAt(
 	y: number,
 	wantPit = false,
 	lapsRemaining = 5,
+	dockRequested = false,
 ): PitEvents {
 	v.x = x;
 	v.y = y;
 	v.progressS = track.progressAt(x, y);
-	return pit.step(v, {dt: DT, wantPit, lapsRemaining, aiDriven: !v.isPlayer});
+	return pit.step(v, {dt: DT, wantPit, lapsRemaining, aiDriven: !v.isPlayer, dockRequested});
 }
 
 describe("passage aux stands", () => {
@@ -44,10 +45,10 @@ describe("passage aux stands", () => {
 		// Passage dans la voie proprement dite.
 		stepAt(pit, v, 900, 920);
 		expect(v.pitPhase).toBe("toBox");
-		// Arrêt dans l'emplacement : le ravitaillement démarre.
+		// Arrêt dans l'emplacement : confirmation manuelle armée, le ravitaillement démarre.
 		v.vLong = 0;
 		v.fuel = 20;
-		const events = stepAt(pit, v, box.x - 2, box.y);
+		const events = stepAt(pit, v, box.x - 2, box.y, false, 5, true);
 		expect(v.pitPhase).toBe("stopped");
 		expect(events.stopped).toBe(true);
 		expect(v.pitStops).toBe(1);
@@ -108,6 +109,24 @@ describe("passage aux stands", () => {
 		expect(v.y).toBe(box.y);
 		expect(v.heading).toBe(0);
 		expect(v.speed).toBe(0);
+	});
+
+	it("joueur : sans confirmation, ne s'accroche jamais et ressort par la voie", () => {
+		const pit = new PitSystem(track, new FuelSystem("normal", 20), new TireSystem("off", 20), new DamageSystem("off"));
+		const v = makeVehicle(true);
+		const box = CLASSIC_OVAL.pitBoxes[0]!;
+		v.pitPhase = "toBox";
+		v.vLong = 0;
+		// Approche lente de la dalle, sans confirmation (touche E jamais pressée).
+		const events = stepAt(pit, v, box.x - 2, box.y);
+		expect(events.stopped).toBeUndefined();
+		expect(v.pitPhase).toBe("toBox");
+		// Traverse la dalle sans jamais s'arrêter : direction la sortie.
+		stepAt(pit, v, box.x + 40, box.y);
+		expect(v.pitPhase).toBe("exiting");
+		const exited = stepAt(pit, v, 1200, 1080);
+		expect(v.pitPhase).toBe("none");
+		expect(exited.exited).toBe(true);
 	});
 
 	it("temps passé aux stands cumulé pendant tout le transit", () => {

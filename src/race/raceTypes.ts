@@ -3,7 +3,7 @@ export type FuelLevel = "off" | "reduced" | "normal" | "high";
 
 /** Réglages d'une course rapide (périmètre MVP du §6.1). */
 export interface RaceSettings {
-	/** Nombre total de voitures, joueur compris (2 à 20). */
+	/** Nombre total de voitures, joueur compris (toujours 20). */
 	carCount: number;
 	/** Nombre de tours (20 à 200 ; préréglages 20/30/50/100). */
 	laps: number;
@@ -22,7 +22,7 @@ export interface RaceSettings {
 }
 
 export const DEFAULT_RACE_SETTINGS: RaceSettings = {
-	carCount: 10,
+	carCount: 20,
 	laps: 20,
 	fuelLevel: "normal",
 	tireLevel: "normal",
@@ -32,6 +32,14 @@ export const DEFAULT_RACE_SETTINGS: RaceSettings = {
 	playerColorIndex: 0,
 	playerNumber: 7,
 };
+
+/**
+ * Phase de la course (§13.1) : tour de formation automatique non compté
+ * (peloton mené par l'IA, joueur compris, en file par ordre de grille),
+ * course lancée après le passage du joueur sur la ligne de départ, puis
+ * clôture une fois tous les concurrents classés ou le délai écoulé.
+ */
+export type RacePhase = "formation" | "racing" | "finished";
 
 /** Statut final d'un concurrent. */
 export type ResultStatus = "finished" | "fuelOut" | "wrecked" | "running";

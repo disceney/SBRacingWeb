@@ -11,9 +11,9 @@ const LAP_PRESETS = [20, 30, 50, 100];
 const FUEL_LEVELS: FuelLevel[] = ["off", "reduced", "normal", "high"];
 
 /**
- * Écran de configuration de course (§6.1, périmètre MVP) : nombre de
- * voitures, tours (préréglages par ←/→, pas fin avec Maj), consommation,
- * collisions, livrée et numéro. Les réglages sont persistés (§20).
+ * Écran de configuration de course (§6.1, périmètre MVP) : tours
+ * (préréglages par ←/→, pas fin avec Maj), consommation, collisions,
+ * livrée et numéro. Les réglages sont persistés (§20).
  */
 export class SetupScene extends Phaser.Scene {
 	private settings!: RaceSettings;
@@ -39,13 +39,6 @@ export class SetupScene extends Phaser.Scene {
 			240,
 			130,
 			[
-				{
-				label: () => `${t("setup.carCount")} : ${this.settings.carCount}`,
-				onChange: (dir) => {
-					// Quinze concurrents au maximum : un stand attitré chacun.
-					this.settings.carCount = clamp(this.settings.carCount + dir, 2, 15);
-				},
-				},
 				{
 					label: () => `${t("setup.laps")} : ${this.settings.laps}`,
 					onChange: (dir, shift) => {

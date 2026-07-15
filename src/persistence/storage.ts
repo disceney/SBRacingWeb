@@ -47,7 +47,7 @@ function sanitizeRace(race: Partial<RaceSettings> | undefined): RaceSettings {
 			? (value as RaceSettings["fuelLevel"])
 			: fallback;
 	return {
-		carCount: clampInt(numberOr(race.carCount, d.carCount), 2, 15),
+		carCount: d.carCount,
 		laps: clampInt(numberOr(race.laps, d.laps), 20, 200),
 		fuelLevel: level(race.fuelLevel, d.fuelLevel),
 		tireLevel: level(race.tireLevel, d.tireLevel),

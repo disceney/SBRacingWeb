@@ -84,6 +84,11 @@ export class Vehicle {
 	finishTime: number | null = null;
 	/** Tours bouclés au moment de l'arrivée (figés, le véhicule roule encore). */
 	lapsAtFinish: number | null = null;
+	/**
+	 * Temps cumulé sous le seuil de vitesse en course (s) : chien de garde
+	 * anti-blocage, remis à zéro dès que la voiture roule.
+	 */
+	stuckTime = 0;
 
 	// — Chronométrage (s).
 	currentLapStart = 0;

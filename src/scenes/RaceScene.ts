@@ -29,6 +29,8 @@ import type {Vehicle} from "../vehicles/Vehicle";
 const ORIENTATION_STEP = (Math.PI * 2) / 32;
 /** Index du bouton Start/Menu, utilisé comme pause manette (§7.2). */
 const GAMEPAD_START_BUTTON = 9;
+/** Index du bouton A/Croix, utilisé comme confirmation manuelle d'accrochage aux stands. */
+const GAMEPAD_DOCK_BUTTON = 0;
 /** Profondeur du voile d'obscurité (au-dessus du monde, sous le HUD). */
 const DARKNESS_DEPTH = 90;
 /** Profondeur des halos lumineux, au-dessus du voile pour le percer. */
@@ -85,6 +87,7 @@ export class RaceScene extends Phaser.Scene {
 	private collisionCooldown = 0;
 	private lowFuelAlerted = false;
 	private gamepadStartWasDown = false;
+	private gamepadDockWasDown = false;
 	private camX = 0;
 	private camY = 0;
 
@@ -108,6 +111,7 @@ export class RaceScene extends Phaser.Scene {
 		this.collisionCooldown = 0;
 		this.lowFuelAlerted = false;
 		this.gamepadStartWasDown = false;
+		this.gamepadDockWasDown = false;
 		this.touchControls = null;
 		this.pitCrews = new Map();
 		this.darkness = null;
@@ -232,6 +236,7 @@ export class RaceScene extends Phaser.Scene {
 			const touch = new TouchControls(this);
 			touch.onPause = () => this.togglePause();
 			touch.onFullscreen = () => this.scale.toggleFullscreen();
+			touch.onDock = () => this.controller.requestPlayerDock();
 			this.touchControls = touch;
 		}
 
@@ -271,10 +276,15 @@ export class RaceScene extends Phaser.Scene {
 				audio.playMenuBlip();
 			}
 		});
+		keyboard.on("keydown-E", () => {
+			if (!this.paused) this.controller.requestPlayerDock();
+		});
 
 		audio.unlock();
 		audio.startEngine();
-		this.showCenterText("3", 0.9);
+		// Départ lancé (§13.1) : affichée sans minuterie, elle reste visible
+		// jusqu'au drapeau vert qui la remplace via showCenterText.
+		this.centerText.setText(t("race.formationLap"));
 
 		// Accès de debug en développement (autopilote de test, inspection).
 		if (import.meta.env.DEV) {
@@ -285,6 +295,8 @@ export class RaceScene extends Phaser.Scene {
 	override update(_time: number, deltaMs: number): void {
 		// Pause manette (Start, front montant) : agit aussi bien pour pausser que reprendre.
 		this.updateGamepadPause();
+		// Confirmation manuelle d'accrochage aux stands (A/Croix, front montant).
+		this.updateGamepadDock();
 
 		if (!this.paused) {
 			this.playerInput.setTouchSource(this.touchControls?.state ?? null);
@@ -292,9 +304,11 @@ export class RaceScene extends Phaser.Scene {
 			this.accumulator += Math.min(deltaMs / 1000, 0.25);
 			let steps = 0;
 			while (this.accumulator >= FIXED_STEP && steps < MAX_CATCHUP_STEPS) {
-				this.playerInput.locked = this.controller.phase === "countdown";
-				// En autopilote, l'IA du joueur écrit les commandes à sa place.
+				this.playerInput.locked = this.controller.phase === "formation";
+				// Pendant la formation ou en autopilote, l'IA du joueur écrit les
+				// commandes à sa place (§13.1).
 				if (
+					this.controller.phase !== "formation" &&
 					!this.controller.autopilotEnabled &&
 					(this.controller.player.isRunning || this.controller.player.raceState === "finished")
 				) {
@@ -316,9 +330,10 @@ export class RaceScene extends Phaser.Scene {
 
 		// Le rendu reste actif même en pause : l'écran reflète l'état réel.
 		this.renderVehicles();
-		this.updateDayNight();
+		const dayNightFraction = this.updateDayNight();
 		this.updateCamera(deltaMs / 1000);
-		this.hud.update(_time);
+		this.hud.update(_time, this.controller.playerDockPromptActive(), dayNightFraction);
+		this.touchControls?.setDockButtonVisible(this.controller.playerDockPromptActive());
 	}
 
 	/** Bouton Start/Menu de la première manette : bascule la pause sur front montant. */
@@ -326,6 +341,13 @@ export class RaceScene extends Phaser.Scene {
 		const down = this.playerInput.gamepad?.isButtonDown(GAMEPAD_START_BUTTON) ?? false;
 		if (down && !this.gamepadStartWasDown) this.togglePause();
 		this.gamepadStartWasDown = down;
+	}
+
+	/** Bouton A/Croix de la première manette : confirme l'accrochage manuel sur front montant. */
+	private updateGamepadDock(): void {
+		const down = this.playerInput.gamepad?.isButtonDown(GAMEPAD_DOCK_BUTTON) ?? false;
+		if (down && !this.gamepadDockWasDown && !this.paused) this.controller.requestPlayerDock();
+		this.gamepadDockWasDown = down;
 	}
 
 	/** Vibration proportionnelle à la vitesse sur choc (§7.2) ; API non standard, sans risque. */
@@ -380,8 +402,10 @@ export class RaceScene extends Phaser.Scene {
 	 * Applique le cycle jour/nuit : obscurité proportionnelle à la progression
 	 * du meneur, projecteurs du circuit, phares et feux de freinage des
 	 * voitures en course. Aucune allocation : tous les objets sont réutilisés.
+	 * Renvoie la fraction de progression utilisée, pour que le HUD affiche
+	 * l'horloge fictive et la phase sans la recalculer différemment.
 	 */
-	private updateDayNight(): void {
+	private updateDayNight(): number {
 		const leader = this.controller.ranking[0];
 		const fraction = leader ? leader.lap / this.settings.laps : 0;
 		const state = this.dayNight.computeFraction(fraction);
@@ -409,6 +433,8 @@ export class RaceScene extends Phaser.Scene {
 				.setPosition(vehicle.x - cos * halfLength, vehicle.y - sin * halfLength)
 				.setAlpha(vehicle.controls.brake > 0 ? lightAlpha : 0);
 		}
+
+		return fraction;
 	}
 
 	/** Caméra lissée avec légère anticipation dans la direction du joueur. */

@@ -24,15 +24,18 @@ export interface CarSpec {
 /** Stock-car standard : calibré sur les valeurs du §8.3. */
 export const STOCK_CAR: CarSpec = {
 	id: "stock-standard",
-	maxSpeed: mphToUnits(180),
-	// v(t) = vMax(1 − e^(−a·t/vMax)) : 0 → 100 mph en ≈ 4 s.
-	acceleration: 53,
+	// Plafond majoré : la vitesse d'équilibre réelle en ligne droite
+	// maxSpeed·(1 − coastDrag/acceleration) ≈ 262 u/s ≈ 181 mph (asymptote jamais
+	// vraiment atteinte, cf. accélération ci-dessous).
+	maxSpeed: mphToUnits(200),
+	// v(t) = vMax(1 − e^(−a·t/vMax)) : 0 → 100 mph en ≈ 3,2 s.
+	acceleration: 62,
 	// 180 → 60 mph en ≈ 3 s.
 	braking: 58,
 	steeringRate: 2.4,
-	// Permet ≈ 150 mph dans les virages de rayon 380 (a = v²/R).
-	lateralGrip: 130,
-	coastDrag: 7,
+	// Permet ≈ 156 mph dans les virages de rayon 380 (a = v²/R).
+	lateralGrip: 135,
+	coastDrag: 6,
 	fuelCapacity: 100,
 	collisionRadius: 14,
 };

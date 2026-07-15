@@ -55,4 +55,36 @@ describe("cycle jour/nuit", () => {
 		expect(system.compute(20, 20).phase).toBe("dawn");
 		expect(system.compute(0, 0).phase).toBe("day");
 	});
+
+	it("l'horloge fictive tombe sur des heures plausibles aux seuils de phase", () => {
+		expect(system.formatTimeOfDay(0)).toBe("14:00");
+		expect(system.formatTimeOfDay(0.2)).toBe("17:12");
+		expect(system.formatTimeOfDay(0.4)).toBe("20:24");
+		expect(system.formatTimeOfDay(0.75)).toBe("02:00");
+		expect(system.formatTimeOfDay(1)).toBe("06:00");
+	});
+
+	it("timeOfDayAt() renvoie des heures et minutes zéro-paddées au format", () => {
+		expect(system.timeOfDayAt(0)).toEqual({hours: 14, minutes: 0});
+		expect(system.formatTimeOfDay(0)).toMatch(/^\d{2}:\d{2}$/);
+		expect(system.formatTimeOfDay(0.75)).toMatch(/^\d{2}:\d{2}$/);
+	});
+
+	it("l'heure fictive avance de façon monotone avec la progression", () => {
+		const fractions = [0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.75, 0.9, 1];
+		const totalMinutes = fractions.map((f) => {
+			const {hours, minutes} = system.timeOfDayAt(f);
+			// Ramène chaque heure fictive à une échelle continue (14 h → 30 h) pour comparer.
+			const absoluteHours = hours < 14 ? hours + 24 : hours;
+			return absoluteHours * 60 + minutes;
+		});
+		for (let i = 1; i < totalMinutes.length; i++) {
+			expect(totalMinutes[i]).toBeGreaterThanOrEqual(totalMinutes[i - 1]!);
+		}
+	});
+
+	it("les fractions hors bornes sont ramenées à [0, 1] pour l'horloge", () => {
+		expect(system.formatTimeOfDay(-5)).toBe(system.formatTimeOfDay(0));
+		expect(system.formatTimeOfDay(5)).toBe(system.formatTimeOfDay(1));
+	});
 });

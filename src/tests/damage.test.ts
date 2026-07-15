@@ -86,7 +86,8 @@ describe("dégâts mécaniques", () => {
 		v.vLong = 0;
 		v.x = box.x - 2;
 		v.y = box.y;
-		pit.step(v, {dt: DT, wantPit: false, lapsRemaining: 2, aiDriven: false});
+		// Confirmation manuelle armée par le joueur pour s'accrocher à sa dalle.
+		pit.step(v, {dt: DT, wantPit: false, lapsRemaining: 2, aiDriven: false, dockRequested: true});
 		expect(v.pitPhase).toBe("stopped");
 		// 2 s de réparation ≈ +25 %.
 		for (let i = 0; i < 120; i++) {
@@ -126,6 +127,40 @@ describe("dégâts mécaniques", () => {
 		}
 		expect(v.health).toBeGreaterThanOrEqual(85);
 		expect(v.pitPhase).toBe("exiting");
+	});
+
+	it("repairTo remonte une épave au niveau roulable, pneus et carburant intacts", () => {
+		const damage = new DamageSystem("normal");
+		const v = makeVehicle();
+		v.health = 10;
+		v.tires = 42;
+		v.fuel = 7;
+		damage.repairTo(v, 0.5);
+		expect(v.health).toBe(50);
+		expect(v.healthFactor).toBeCloseTo(0.5, 5);
+		expect(v.tires).toBe(42);
+		expect(v.fuel).toBe(7);
+	});
+
+	it("repairTo ne dégrade jamais une voiture déjà au-dessus du plancher", () => {
+		const damage = new DamageSystem("normal");
+		const v = makeVehicle();
+		v.health = 80;
+		damage.repairTo(v, 0.5);
+		expect(v.health).toBe(80);
+	});
+
+	it("une épave immobile redevient roulable après repairTo (santé remontée au plancher)", () => {
+		const damage = new DamageSystem("normal");
+		const v = makeVehicle();
+		v.health = 1;
+		v.lastImpact = 300;
+		v.vLong = 2;
+		damage.step(v); // casse mécanique : santé à 0, épave immobile
+		expect(v.raceState).toBe("wrecked");
+		damage.repairTo(v, 0.5);
+		expect(v.health).toBe(50);
+		expect(v.healthFactor).toBeCloseTo(0.5, 5);
 	});
 
 	it("stratégie IA : arrêt demandé quand la mécanique devient inquiétante", () => {

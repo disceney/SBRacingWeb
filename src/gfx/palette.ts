@@ -47,4 +47,8 @@ export const DECOR = {
 	standSteel: "#787888",
 	standSeat: "#4A4A58",
 	roof: "#B03028",
+	rubber: "#202024",
+	asphaltJoint: "#78787E",
+	kerbShadow: "#585860",
+	treeDark: "#164A16",
 } as const;

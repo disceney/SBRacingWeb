@@ -31,7 +31,7 @@ describe("sauvegarde locale des réglages (§20)", () => {
 		const settings = loadSettings();
 		settings.masterVolume = 0.5;
 		settings.muted = true;
-		settings.lastRace = {...settings.lastRace, carCount: 14, laps: 50, fuelLevel: "high"};
+		settings.lastRace = {...settings.lastRace, laps: 50, fuelLevel: "high"};
 		saveSettings(settings);
 		const reloaded = loadSettings();
 		expect(reloaded).toEqual(settings);
@@ -54,11 +54,25 @@ describe("sauvegarde locale des réglages (§20)", () => {
 		const settings = loadSettings();
 		expect(settings.masterVolume).toBe(1);
 		expect(settings.muted).toBe(false);
-		expect(settings.lastRace.carCount).toBe(15);
+		expect(settings.lastRace.carCount).toBe(20);
 		expect(settings.lastRace.laps).toBe(20);
 		expect(settings.lastRace.fuelLevel).toBe("normal");
 		expect(settings.lastRace.tireLevel).toBe("normal");
 		expect(settings.lastRace.playerNumber).toBe(99);
+	});
+
+	it("nombre de voitures toujours ramené à vingt", () => {
+		store.set(
+			"sb-racing-web:settings",
+			JSON.stringify({lastRace: {carCount: 2}}),
+		);
+		expect(loadSettings().lastRace.carCount).toBe(20);
+
+		store.set(
+			"sb-racing-web:settings",
+			JSON.stringify({lastRace: {carCount: 10}}),
+		);
+		expect(loadSettings().lastRace.carCount).toBe(20);
 	});
 
 	it("nombre de tours assaini : minimum 20, maximum 200", () => {

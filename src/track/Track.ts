@@ -159,6 +159,38 @@ export class Track {
 		return inFirstStraight || inSecondStraight ? 0 : 1 / this.radius;
 	}
 
+	/**
+	 * Décalage latéral « meilleur chemin » à l'abscisse s : extérieur en ligne
+	 * droite et en entrée/sortie de virage, corde intérieure à l'apex. Les deux
+	 * virages du stade sont géométriquement identiques, donc un seul profil
+	 * (paramétré par la position t dans l'arc courant) suffit : entrée large
+	 * sur les 40 premiers % de l'arc (transition extérieur → intérieur), corde
+	 * tenue sur les 20 % centraux, sortie large sur les 40 derniers % (retour
+	 * intérieur → extérieur). Les transitions en smoothstep raccordent sans
+	 * saut à la valeur extérieure constante des lignes droites, ce qui borne
+	 * la dérivée et garde la trajectoire pilotable.
+	 */
+	optimalOffsetAt(s: number): number {
+		const raw = (((s + this.startOffset) % this.lapLength) + this.lapLength) % this.lapLength;
+		const outside = 70;
+		const inside = -70;
+		let t = -1;
+		if (raw >= this.straightLen && raw < this.straightLen + this.arcLen) {
+			t = raw - this.straightLen;
+		} else if (raw >= 2 * this.straightLen + this.arcLen) {
+			t = raw - (2 * this.straightLen + this.arcLen);
+		}
+		if (t < 0) return outside;
+
+		const entryLen = this.arcLen * 0.4;
+		const exitLen = this.arcLen * 0.4;
+		if (t < entryLen) return lerp(outside, inside, smoothstep(t / entryLen));
+		if (t > this.arcLen - exitLen) {
+			return lerp(inside, outside, smoothstep((t - (this.arcLen - exitLen)) / exitLen));
+		}
+		return inside;
+	}
+
 	/** Surface au point (x, y), voie des stands comprise. */
 	surfaceAt(x: number, y: number): Surface {
 		if (this.isInPitArea(x, y)) return Surface.PitLane;
@@ -226,4 +258,15 @@ export class Track {
 	private normalizeAngle(a: number): number {
 		return Math.max(0, Math.min(Math.PI, a));
 	}
+}
+
+/** Interpolation linéaire entre a et b (t dans [0, 1]). */
+function lerp(a: number, b: number, t: number): number {
+	return a + (b - a) * t;
+}
+
+/** Transition lissée à dérivée nulle aux bornes (x clampé dans [0, 1]). */
+function smoothstep(x: number): number {
+	const c = Math.max(0, Math.min(1, x));
+	return c * c * (3 - 2 * c);
 }

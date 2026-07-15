@@ -60,17 +60,17 @@ function driveCleanTurn(v: Vehicle, targetSpeed: number, steps: number): void {
 }
 
 describe("dérapage progressif et tête-à-queue", () => {
-	it("virage tenu à ~150 mph : jamais de toupie", () => {
+	it("virage tenu à ~152 mph : jamais de toupie", () => {
 		const v = makeVehicle();
-		const target = mphToUnits(150);
+		const target = mphToUnits(152);
 		placeInTurn(v, target);
 		driveCleanTurn(v, target, 240); // 4 s soutenues dans le virage
 		expect(v.spinning).toBe(false);
 	});
 
-	it("virage forcé à ~175 mph, accélérateur et direction au maximum : dérapage puis toupie en moins de 2 s", () => {
+	it("virage forcé à ~180 mph, accélérateur et direction au maximum : dérapage puis toupie en moins de 2 s", () => {
 		const v = makeVehicle();
-		placeInTurn(v, mphToUnits(175));
+		placeInTurn(v, mphToUnits(180));
 		v.controls.throttle = 1;
 		v.controls.brake = 0;
 		v.controls.steer = 1;
@@ -90,7 +90,7 @@ describe("dérapage progressif et tête-à-queue", () => {
 
 	it("récupération après la toupie : ralenti sous le seuil, le contrôle revient", () => {
 		const v = makeVehicle();
-		placeInTurn(v, mphToUnits(175));
+		placeInTurn(v, mphToUnits(180));
 		v.controls.throttle = 1;
 		v.controls.brake = 0;
 		v.controls.steer = 1;
@@ -118,7 +118,7 @@ describe("dérapage progressif et tête-à-queue", () => {
 
 	it("un excès bref (quelques pas) ne déclenche pas la toupie : progressivité", () => {
 		const v = makeVehicle();
-		placeInTurn(v, mphToUnits(175));
+		placeInTurn(v, mphToUnits(180));
 		v.controls.throttle = 1;
 		v.controls.brake = 0;
 		v.controls.steer = 1;
@@ -126,7 +126,7 @@ describe("dérapage progressif et tête-à-queue", () => {
 		expect(v.spinning).toBe(false);
 
 		// Retour à une conduite propre : aucune toupie ne se déclenche après coup.
-		driveCleanTurn(v, mphToUnits(150), 60);
+		driveCleanTurn(v, mphToUnits(152), 60);
 		expect(v.spinning).toBe(false);
 	});
 });

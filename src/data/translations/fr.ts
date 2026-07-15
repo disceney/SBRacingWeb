@@ -8,12 +8,9 @@ export const fr = {
 	"common.off": "Désactivées",
 	"common.on2": "Activé",
 	"common.off2": "Désactivé",
-	"common.comingSoon": "À venir",
 
 	// — Menu principal (§15).
 	"menu.quickRace": "Course rapide",
-	"menu.tutorial": "Tutoriel",
-	"menu.records": "Records",
 	"menu.options": "Options",
 	"menu.controls": "Commandes",
 	"menu.credits": "Crédits",
@@ -21,7 +18,6 @@ export const fr = {
 
 	// — Configuration de course (§6.1).
 	"setup.title": "CONFIGURATION DE COURSE",
-	"setup.carCount": "Voitures",
 	"setup.laps": "Tours",
 	"setup.fuel": "Consommation",
 	"setup.fuel.off": "Désactivée",
@@ -55,6 +51,7 @@ export const fr = {
 	"hud.timeBest": "MEILLEUR",
 	"hud.pit.entering": "STANDS : ENTRÉE",
 	"hud.pit.toBox": "STANDS : EMPLACEMENT {n}",
+	"hud.pit.readyToDock": "E — ENTRER AU STAND",
 	"hud.pit.stopped": "RAVITAILLEMENT…",
 	"hud.pit.exiting": "STANDS : SORTIE",
 	"hud.warning.lowFuel": "CARBURANT FAIBLE",
@@ -68,6 +65,7 @@ export const fr = {
 	"hud.warning.wrecked": "ACCIDENTÉE",
 	"hud.warning.lastLap": "DERNIER TOUR !",
 	"hud.finished": "ARRIVÉE !",
+	"race.formationLap": "TOUR DE FORMATION",
 	"race.go": "GO !",
 	"race.paused": "PAUSE",
 	"race.pauseHint": "Échap pour reprendre, Q pour abandonner",
@@ -111,6 +109,7 @@ export const fr = {
 	"controls.action.brake": "Freiner",
 	"controls.action.pause": "Pause",
 	"controls.action.pitReset": "Remise en piste",
+	"controls.action.pitDock": "Entrer au stand",
 	"controls.action.autopilot": "Autopilote",
 	"controls.action.mute": "Son",
 	"controls.action.quit": "Abandonner (en pause)",
@@ -122,6 +121,7 @@ export const fr = {
 	"controls.keyboard.brake": "↓ ou Ctrl",
 	"controls.keyboard.pause": "Échap",
 	"controls.keyboard.pitReset": "R",
+	"controls.keyboard.pitDock": "E",
 	"controls.keyboard.autopilot": "A",
 	"controls.keyboard.mute": "M",
 	"controls.keyboard.quit": "Q",
@@ -132,11 +132,13 @@ export const fr = {
 	"controls.gamepad.pause": "Start ou Options",
 	"controls.gamepad.confirm": "A ou Croix",
 	"controls.gamepad.cancel": "B ou Rond",
+	"controls.gamepad.pitDock": "A ou Croix",
 	"controls.touch.steer": "◀ ▶",
 	"controls.touch.accelerate": "ACCÉL",
 	"controls.touch.brake": "FREIN",
 	"controls.touch.pause": "⏸",
 	"controls.touch.fullscreen": "⛶",
+	"controls.touch.pitDock": "STAND",
 
 	// — Crédits.
 	"credits.body":
